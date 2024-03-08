@@ -23,12 +23,12 @@ current_midibank_set = MIDI_BANKS_CHROMATIC
 midi_bank_idx = 3
 current_midi_notes = current_midibank_set[midi_bank_idx]
 
-cc_only_mode = False   # If True, only CC messages will be sent. No notes.
+# cc_only_mode = False   # If True, only CC messages will be sent. No notes.
 CC_BANK = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11,12,13,14,15]  # CC messages for the buttons
 
-def send_midi_note_on(idx):
+def send_midi_note_on(idx,vel=100):
     note = current_midi_notes[idx]
-    midi.send(NoteOn(note, 120))
+    midi.send(NoteOn(note, vel))
 
 def send_midi_note_off(idx):
     note = current_midi_notes[idx]
@@ -36,7 +36,7 @@ def send_midi_note_off(idx):
 
 def clear_all_notes():
     for i in range(127):
-        send_midi_note_off(i)
+        midi.send(NoteOff(i, 1))
 
 def chg_midi_bank(upOrDown = True):
     global midi_bank_idx
