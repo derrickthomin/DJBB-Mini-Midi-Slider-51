@@ -6,9 +6,9 @@ import sliders
 
 from display import (
     display_midi_bank_down, display_midi_bank_up,
-    BANK_DOWN_IDX, BANK_UP_IDX, draw_c, draw_n,
+    BANK_DOWN_IDX, BANK_UP_IDX, draw_C, draw_N,
     set_pixel_color_cc, set_pixel_color_note, clear_pixel,
-    update_cc_pixels, draw_hi, blink_next_color, blink_prev_color
+    update_cc_pixels, draw_HI, blink_next_color, blink_prev_color
 )
 from settings import debug_print
 import digitalio
@@ -83,7 +83,7 @@ def toggle_cc_only_mode():
     CC_ONLY_MODE = not CC_ONLY_MODE
     if CC_ONLY_MODE:
         clear_all_notes()             # dont leave any notes hanging
-        draw_c()
+        draw_C()
 
         for i in range(16):           # Reset latches
             button_held_note_mode[i] = btn_latched[i]
@@ -92,10 +92,10 @@ def toggle_cc_only_mode():
     else:
         for idx in range(16):
             button_held_note_mode[idx] = False
-        draw_n()
+        draw_N()
 
 
-draw_hi()  # Splash screen
+draw_HI()  # Splash screen
 
 while True:
     fn_button.update()

@@ -3,7 +3,7 @@ import storage
 storage.remount("/", readonly=False)
 
 m = storage.getmount("/")
-m.label = "djbbmicromidi"
+m.label = "midisliders51"
 
 storage.remount("/", readonly=True)
 
