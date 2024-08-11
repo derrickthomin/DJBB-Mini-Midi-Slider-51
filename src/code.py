@@ -1,5 +1,4 @@
 import board
-import time
 from adafruit_debouncer import Button
 from midi import send_midi_note_on, send_midi_note_off, clear_all_notes, change_midi_bank, send_control_change
 import sliders
@@ -10,7 +9,7 @@ from display import (
     set_pixel_color_cc, set_pixel_color_note, clear_pixel,
     update_cc_pixels, draw_HI, blink_next_color, blink_prev_color
 )
-from settings import debug_print
+from settings import debug_print, load_cc_vals_from_file
 import digitalio
 
 # Button Pins Setup
@@ -44,16 +43,19 @@ for pin in DRUMPAD_BTN_PINS:
     button.pull = digitalio.Pull.UP
     drumpad_buttons.append(Button(button))
 
-slide_cc_vals = [3, 9, 85]
+all_cc_vals = load_cc_vals_from_file()
+slide_cc_vals = all_cc_vals[0]
+slide_cc_vals_held = all_cc_vals[1]
+# slide_cc_vals = [3, 9, 85]
 
-# Array of arrays of slide potentiometer values to be used when each of the 16 buttons are held down.
-# Each inner array contains the CC values for the 3 slide potentiometers, starting at value 10.
-slide_cc_vals_held = [
-    [10, 11, 12], [13, 14, 15], [16, 17, 18], [19, 20, 21],
-    [22, 23, 24], [25, 26, 27], [28, 29, 30], [31, 32, 33],
-    [34, 35, 36], [37, 38, 39], [40, 41, 42], [43, 44, 45],
-    [46, 47, 48], [49, 50, 51], [52, 53, 54], [55, 56, 57]
-]
+# # Array of arrays of slide potentiometer values to be used when each of the 16 buttons are held down.
+# # Each inner array contains the CC values for the 3 slide potentiometers, starting at value 10.
+# slide_cc_vals_held = [
+#     [10, 11, 12], [13, 14, 15], [16, 17, 18], [19, 20, 21],
+#     [22, 23, 24], [25, 26, 27], [28, 29, 30], [31, 32, 33],
+#     [34, 35, 36], [37, 38, 39], [40, 41, 42], [43, 44, 45],
+#     [46, 47, 48], [49, 50, 51], [52, 53, 54], [55, 56, 57]
+# ]
 
 # Track latched state for cc mode
 button_held_note_mode = [
