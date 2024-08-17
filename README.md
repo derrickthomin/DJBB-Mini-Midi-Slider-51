@@ -1,4 +1,4 @@
-# micro_midi_slider_pico
+# DJBB Mini Midi Slider 51
 small midi controller based on RP 2040
 ![handjpgsmall](https://github.com/user-attachments/assets/53864c1d-ebb3-4f15-b18e-ed0a4853a65e)
 
