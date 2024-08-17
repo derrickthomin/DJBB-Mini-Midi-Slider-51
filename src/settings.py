@@ -1,6 +1,6 @@
 import json
 
-debug = True
+debug = False
 FILEPATH = 'cc_vals.json'
 
 default_slide_cc_vals = [3, 9, 85]
@@ -34,3 +34,18 @@ def load_cc_vals_from_file():
 
     except FileNotFoundError:
         return (default_slide_cc_vals, default_slide_cc_vals_held)
+
+def load_midi_channel_from_file():
+    try:
+        with open(FILEPATH, 'r') as f:
+            all_data = json.load(f)
+            midi_channel = all_data['MIDI_CHANNEL']
+            midi_channel -= 1
+            midi_channel = max(midi_channel, 0)
+
+            debug_print(f"Loaded MIDI channel from file: {midi_channel}")
+
+            return midi_channel
+
+    except FileNotFoundError:
+        return 1

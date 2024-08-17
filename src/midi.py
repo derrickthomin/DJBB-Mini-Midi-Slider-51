@@ -3,9 +3,11 @@ from adafruit_midi.note_on import NoteOn
 from adafruit_midi.note_off import NoteOff
 from adafruit_midi.control_change import ControlChange
 import usb_midi
+from settings import load_midi_channel_from_file
 
 # Create a MIDI object
-midi = adafruit_midi.MIDI(midi_out=usb_midi.ports[1], out_channel=1)
+channel = load_midi_channel_from_file()
+midi = adafruit_midi.MIDI(midi_out=usb_midi.ports[1], out_channel=channel)
 
 # Set up MIDI banks
 MIDI_BANKS_CHROMATIC = [[0 + i for i in range(16)],
@@ -22,8 +24,6 @@ MIDI_BANKS_CHROMATIC = [[0 + i for i in range(16)],
 current_midibank_set = MIDI_BANKS_CHROMATIC
 MIDI_BANK_IDX = 3
 current_midi_notes = current_midibank_set[MIDI_BANK_IDX]
-
-CC_BANK = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
 
 def send_midi_note_on(index, velocity=100):
     """
