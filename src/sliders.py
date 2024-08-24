@@ -2,7 +2,7 @@ import board
 import analogio
 
 # Constants
-SLIDE_POT_CHANGE_THRESHOLD = 200
+SLIDE_POT_CHANGE_THRESHOLD = 1000
 SLIDE_CHECK_COUNTER = 0
 ANY_SLIDE_CHANGED = False
 slide_values_changed = [False, False, False]
