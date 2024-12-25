@@ -74,6 +74,7 @@ def change_midi_bank(up_or_down=True):
         MIDI_BANK_IDX -= 1
 
     current_midi_notes = current_midibank_set[MIDI_BANK_IDX]
+    return MIDI_BANK_IDX
 
 def send_control_change(control_change, value):
     """

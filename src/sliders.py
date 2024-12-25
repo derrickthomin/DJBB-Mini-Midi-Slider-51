@@ -1,70 +1,136 @@
+# import board
+# import analogio
+
+# # Constants
+# SLIDE_POT_CHANGE_THRESHOLD = 1000
+# SLIDE_CHECK_COUNTER = 0
+# ANY_SLIDE_CHANGED = False
+# slide_values_changed = [False, False, False]
+# current_slide_pots_midi = [0, 0, 0]
+# midi_val_chg_status = [False, False, False]  # Check this to only send new vals when changed
+
+# # Set up slide potentiometers
+# slide_potentiometers = [
+#     analogio.AnalogIn(board.GP26),
+#     analogio.AnalogIn(board.GP27),
+#     analogio.AnalogIn(board.GP28)
+# ]
+
+# slide_values = [[0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0]]  # Track 6 for averaging. last always most recent
+
+# # Translate slide potentiometer value to MIDI value
+# def slide_pot_to_midi(slide_value):
+#     """
+#     Convert slide potentiometer value to MIDI value.
+#     """
+#     return int((slide_value / 65535) * 127)
+
+
+# def update():
+#     """
+#     Update slide potentiometers.
+#     """
+#     global ANY_SLIDE_CHANGED
+#     global slide_values_changed
+#     global current_slide_pots_midi
+#     global midi_val_chg_status
+
+#     # Update pots
+#     ANY_SLIDE_CHANGED = False
+#     slide_values_changed = [False, False, False]
+#     for idx, slide in enumerate(slide_potentiometers):
+#         current_val = 65535 - slide.value
+#         slide_values[idx].append(current_val)
+
+#         # Compare the average of the most recent value plus the previous two values to the first 3 values in the list
+#         average = sum(slide_values[idx][-3:]) / 3
+#         prev_avg = sum(slide_values[idx][:3]) / 3
+
+#         midi_val_chg_status[idx] = False
+#         if abs(average - prev_avg) > SLIDE_POT_CHANGE_THRESHOLD:
+#             slide_values_changed[idx] = True
+#             ANY_SLIDE_CHANGED = True
+#             cur_midi = slide_pot_to_midi(average)
+#             if cur_midi == current_slide_pots_midi[idx]:
+#                 midi_val_chg_status[idx] = False
+#             else:
+#                 print(f"prev: {current_slide_pots_midi[idx]} new: {cur_midi}")
+#                 current_slide_pots_midi[idx] = cur_midi
+#                 midi_val_chg_status[idx] = True
+
+#         if len(slide_values[idx]) > 7:
+#             slide_values[idx].pop(0)
+
+#     return ANY_SLIDE_CHANGED
+
+
+
 import board
 import analogio
+import time  # Optional: For controlling the update rate
 
 # Constants
-SLIDE_POT_CHANGE_THRESHOLD = 1000
-SLIDE_CHECK_COUNTER = 0
-ANY_SLIDE_CHANGED = False
-slide_values_changed = [False, False, False]
-current_slide_pots_midi = [0, 0, 0]
-midi_val_chg_status = [False, False, False]  # Check this to only send new vals when changed
+SLIDER_CHANGE_THRESHOLD = 2     # Minimum change in MIDI value to trigger an update
+EMA_ALPHA = 0.1                 # EMA smoothing factor (0 < alpha ≤ 1)
+NUM_SLIDERS = 3                 # Number of sliders
 
 # Set up slide potentiometers
-slide_potentiometers = [
-    analogio.AnalogIn(board.GP26),
-    analogio.AnalogIn(board.GP27),
-    analogio.AnalogIn(board.GP28)
-]
+slide_pot_pins = [board.GP26, board.GP27, board.GP28]
+slide_potentiometers = [analogio.AnalogIn(pin) for pin in slide_pot_pins]
 
-slide_values = [[0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0]]  # Track 6 for averaging. last always most recent
+# Initialize variables
+ema_values = [0.0] * NUM_SLIDERS                      # EMA values for each slider
+current_slide_pots_midi = [0] * NUM_SLIDERS               # Current MIDI values for sliders
+midi_value_changed = [False] * NUM_SLIDERS            # Flags indicating if MIDI value changed
 
-# Translate slide potentiometer value to MIDI value
 def slide_pot_to_midi(slide_value):
     """
-    Convert slide potentiometer value to MIDI value.
+    Convert slide potentiometer value (0-65535) to MIDI value (0-127).
     """
+    # Ensure slide_value is within valid range
+    slide_value = max(0, min(65535, slide_value))
     return int((slide_value / 65535) * 127)
 
+def initialize_ema_values():
+    """
+    Initialize the EMA values with the current slider readings.
+    """
+    for idx, slide in enumerate(slide_potentiometers):
+        raw_value = slide.value
+        inverted_value = 65535 - raw_value  # Invert based on hardware setup
+        ema_values[idx] = inverted_value  # Set initial EMA to current value
 
 def update():
     """
-    Update slide potentiometers.
+    Update slide potentiometers using EMA and check for significant MIDI value changes.
+    Returns True if any slider has a significant change, False otherwise.
     """
-    global ANY_SLIDE_CHANGED
-    global slide_values_changed
-    global current_slide_pots_midi
-    global midi_val_chg_status
+    any_slider_changed = False
 
-    # Update pots
-    ANY_SLIDE_CHANGED = False
-    slide_values_changed = [False, False, False]
     for idx, slide in enumerate(slide_potentiometers):
-        current_val = 65535 - slide.value
-        slide_values[idx].append(current_val)
+        # Read current raw value from the slider and invert it if necessary
+        raw_value = slide.value
+        inverted_value = 65535 - raw_value  # Invert based on hardware setup
 
-        # Compare the average of the most recent value plus the previous two values to the first 3 values in the list
-        average = sum(slide_values[idx][-3:]) / 3
-        prev_avg = sum(slide_values[idx][:3]) / 3
+        # Update EMA value
+        previous_ema = ema_values[idx]
+        ema = EMA_ALPHA * inverted_value + (1 - EMA_ALPHA) * previous_ema
+        ema_values[idx] = ema
 
-        midi_val_chg_status[idx] = False
-        if abs(average - prev_avg) > SLIDE_POT_CHANGE_THRESHOLD:
-            slide_values_changed[idx] = True
-            ANY_SLIDE_CHANGED = True
-            cur_midi = slide_pot_to_midi(average)
-            if cur_midi == current_slide_pots_midi[idx]:
-                midi_val_chg_status[idx] = False
-            else:
-                print(f"prev: {current_slide_pots_midi[idx]} new: {cur_midi}")
-                current_slide_pots_midi[idx] = cur_midi
-                midi_val_chg_status[idx] = True
+        # Convert the EMA value to a MIDI value
+        midi_value = slide_pot_to_midi(ema)
 
-        if len(slide_values[idx]) > 7:
-            slide_values[idx].pop(0)
+        # Check if the MIDI value has changed beyond the threshold
+        previous_midi_value = current_slide_pots_midi[idx]
+        if abs(midi_value - previous_midi_value) >= SLIDER_CHANGE_THRESHOLD:
+            # Significant change detected
+            current_slide_pots_midi[idx] = midi_value
+            midi_value_changed[idx] = True
+            any_slider_changed = True
+            print(f"Slider {idx + 1} MIDI value changed from {previous_midi_value} to {midi_value}")
+        else:
+            midi_value_changed[idx] = False
 
-    return ANY_SLIDE_CHANGED
+    return any_slider_changed
 
-
-
-
-
-    
+initialize_ema_values()

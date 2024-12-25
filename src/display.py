@@ -45,6 +45,15 @@ pixels_mapped = [15, 14, 13, 12,
                  7, 6, 5, 4,
                  0, 1, 2, 3]
 
+previous_velocity_step = 0
+
+# What it looks like visually. 15 is bottom left, 3 is top right.
+
+#                          0  1  2  3
+#                          7  6  5  4
+#                          8  9  10 11
+#                          15 14 13 12    
+
 # Function to turn off all pixels
 def clear_pixels():
     """
@@ -66,8 +75,87 @@ def get_pixel(index):
     """
     return pixels_mapped[index]
 
+def calculate_brightness(step):
+    """
+    Calculates the brightness level for a given step (1-16).
+    Brightness ranges from low to high.
+
+    Args:
+        step (int): The step number (1-16).
+
+    Returns:
+        float: Brightness value between 0.1 and 1.0.
+    """
+    brightness = 0.1 + ((step - 1) / 15) * 0.9  # Scale brightness from 0.1 to 1.0
+    return max(0.1, min(brightness, 1.0))
+
+def scale_color(color, brightness):
+    """
+    Scales the color by the given brightness.
+
+    Args:
+        color (tuple): Original RGB color tuple (0-255).
+        brightness (float): Brightness factor (0.1 to 1.0).
+
+    Returns:
+        tuple: Scaled RGB color tuple.
+    """
+    r = int(color[0] * brightness)
+    g = int(color[1] * brightness)
+    b = int(color[2] * brightness)
+    return (r, g, b)
+
+def display_velocity(velocity_value, color=WHITE):
+    """
+    Displays the velocity on the NeoPixel grid by lighting up pixels in steps.
+    Updates only when the velocity crosses into a new step.
+
+    Args:
+        velocity_value (int): MIDI velocity value (0-127).
+        color (tuple, optional): Base RGB color for the pixels. Defaults to WHITE.
+
+    Returns:
+        None
+    """
+    # Define velocity thresholds for each of the 16 steps
+    velocity_thresholds = [int((127 * i) / 16) for i in range(1, 17)]  # 16 thresholds
+
+    # Determine the current step based on velocity
+    step = 16  # Default to maximum step
+    for i, threshold in enumerate(velocity_thresholds):
+        if velocity_value <= threshold:
+            step = i + 1
+            break
+    # Avoid updating if the displayed step hasn't changed
+    # We'll need to store the previous step value; let's use a global variable
+    global previous_velocity_step
+
+    if step == previous_velocity_step:
+        # No change in step; do not update display
+        return
+    else:
+        previous_velocity_step = step  # Update the stored step
+
+    # Clear the display
+    clear_pixels()
+
+    # Define the lighting order from bottom left to top right
+    light_order = [15, 14, 13, 12,
+                   8, 9, 10, 11,
+                   7, 6, 5, 4,
+                   0, 1, 2, 3]
+
+    # Light up pixels according to the current step
+    for idx in range(step):
+        # pixel_idx = pixels_mapped.index(idx)
+        # Calculate brightness for this step
+        brightness = calculate_brightness(step)
+        scaled_color = scale_color(color, brightness)
+        pixels[light_order[idx]] = scaled_color
+
+    pixels.show()
 # Function to draw a letter 'C' on the pixels with a specified color
-def draw_C(color=BLUE):
+def draw_C(color=BLUE, sleeptime=0.2):
     i = 0
     while i < 2:
         pixels[0] = color
@@ -82,7 +170,7 @@ def draw_C(color=BLUE):
         pixels[12] = color
 
         if color != BLACK:
-            time.sleep(0.2)
+            time.sleep(sleeptime)
             color = BLACK
         i += 1
 
@@ -127,7 +215,7 @@ def draw_HI(color=BLUE):
 
 
 # Function to draw a letter 'N' on the pixels with a specified color
-def draw_N(color=ORANGE):
+def draw_N(color=ORANGE, sleeptime=0.2):
     clear_pixels()
     i = 0
     while i < 2:
@@ -143,31 +231,172 @@ def draw_N(color=ORANGE):
         pixels[15] = color
 
         if color != BLACK:
-            time.sleep(0.2)
+            time.sleep(sleeptime)
             color = BLACK
 
         i += 1
 
-# Function to light up the pixel associated with the MIDI bank up button
-def display_midi_bank_up():
+def draw_NC(color=CYAN):
     """
-    Displays the MIDI bank up action on the pixels.
+    Draws an indication for N+C mode on the display.
+    """
+    clear_pixels()
+    draw_N(sleeptime=0.15)
+    clear_pixels()
 
-    This function sets the color of the pixel corresponding to the bank up action to green.
+    # Implement your desired pattern to represent N+C mode
+    # For example, light up all corners
+    pixels[15] = color
+    pixels[9] = color
+    pixels[5] = color
+    pixels[3] = color
+    pixels.show()
+    time.sleep(0.15)
+    clear_pixels()
+    draw_C(sleeptime=0.15)
+    
+def draw_lock_icon(color=RED):
+    """
+    Draws the letter 'L' on the NeoPixel grid using the specified color.
 
-    Parameters:
-    None
+    The 'L' consists of:
+    - The entire left-hand column lit up (pixels 15, 8, 7, 0).
+    - The bottom row lit up starting from the left (pixels 0, 1, 2).
+
+    Args:
+        color (tuple, optional): The RGB color value to use for drawing the letter 'L'.
+                                  Defaults to ORANGE.
 
     Returns:
-    None
+        None
     """
-    pixels[get_pixel(BANK_UP_IDX)] = GREEN
+    clear_pixels()
 
-def display_midi_bank_down():
+    for j in (8,9,10,15,14,13): # body of lock
+        pixels[j] = color
+
+    sleep_time = 0
+    for j in (7,0,1,2,5): # animate locking
+        sleep_time = sleep_time + 0.025
+        time.sleep(sleep_time)
+        pixels[j] = color
+    
+    time.sleep(0.25)
+    clear_pixels()
+
+
+def draw_unlock_icon(color=GREEN):
     """
-    Displays the MIDI bank down indicator on the display.
+    Draws the letter 'K' on the NeoPixel grid using the specified color.
+
+    The 'K' consists of:
+    - The entire second column lit up (pixels 14, 9, 6, 1).
+    - Pixels to form the upper and lower diagonals:
+        - Upper diagonal: pixels 5
+        - Lower diagonal: pixels 4
+
+    Args:
+        color (tuple, optional): The RGB color value to use for drawing the letter 'K'.
+                                  Defaults to GREEN.
+
+    Returns:
+        None
     """
-    pixels[get_pixel(BANK_DOWN_IDX)] = RED
+    clear_pixels()
+    for j in range(16):
+        if j in (6, 12, 11, 4, 3):
+            continue
+        pixels[j] = color
+    
+    sleep_time = 0
+    for j in (5,2,1,0,7): # animate unlocking
+        sleep_time = sleep_time + 0.025
+        time.sleep(sleep_time)
+        pixels[j] = BLACK
+
+        # if color != BLACK:
+        #     #time.sleep(4)
+        #     color = BLACK  # Turn off the pixels after a short delay
+    time.sleep(0.25)
+    clear_pixels()
+
+# draw_lock_icon()
+# draw_unlock_icon()
+
+def draw_number(number, color=WHITE):
+    """
+    Lights up the specified number of pixels on the NeoPixel grid,
+    starting from the bottom left (pixel 0).
+
+    Args:
+        number (int): Number of pixels to light up (0-15).
+                      - If 0 is passed, light up the first pixel (pixel 0).
+                      - If 1 is passed, light up pixels 0 and 1.
+                      - ...
+                      - If 15 is passed, light up all 16 pixels.
+        color (tuple): RGB color to light the pixels with. Defaults to WHITE.
+
+    Returns:
+        None
+    """
+    clear_pixels()
+
+    # Define the lighting order starting from pixel 0 (bottom left)
+    light_order = [3, 2, 1, 0, 7, 6, 5, 4, 11, 10, 9, 8, 15, 14, 13, 12]
+
+    # Determine the number of pixels to light up
+    # If number is 0, light up 1 pixel (pixel 0)
+    num_pixels = number + 1 if number < len(light_order) else len(light_order)
+
+    # Ensure num_pixels does not exceed the grid
+    num_pixels = min(num_pixels, len(light_order))
+
+    # Get the list of pixels to light up
+    pixels_to_light = light_order[:num_pixels]
+
+    # Light up the specified pixels
+    for px in pixels_to_light:
+        try:
+            mapped_idx = pixels_mapped.index(px)
+            pixels[mapped_idx] = color
+        except ValueError:
+            # If the pixel is not found in pixels_mapped, skip it
+            continue
+
+    # Optional: Adjust the sleep duration as needed
+    time.sleep(0.1)
+
+    # Clear the pixels after displaying the number
+    clear_pixels()
+
+# Function to light up the pixel associated with the MIDI bank up button
+def display_midi_bank_up(bank_number):
+    """
+    Displays the MIDI bank up action on the pixels by showing the bank number.
+
+    This function sets the color of the pixels to display the specified bank number in green.
+
+    Args:
+        bank_number (int): The bank number to display.
+
+    Returns:
+        None
+    """
+    draw_number(bank_number, GREEN)
+
+def display_midi_bank_down(bank_number):
+    """
+    Displays the MIDI bank down indicator on the display by showing the bank number.
+
+    This function sets the color of the pixels to display the specified bank number in red.
+
+    Args:
+        bank_number (int): The bank number to display.
+
+    Returns:
+        None
+    """
+    draw_number(bank_number, RED)
 
 def blink_next_color():
     """
@@ -252,6 +481,9 @@ def set_pixel_color_note(idx):
     None
     """
     pixels[get_pixel(idx)] = ORANGE
+
+def set_pixel_color_nc(idx):
+    pixels[get_pixel(idx)] = CYAN
 
 def clear_pixel(idx):
     """
