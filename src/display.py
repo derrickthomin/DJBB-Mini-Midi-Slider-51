@@ -2,6 +2,7 @@ import neopixel
 import board
 import time
 
+
 # Helper variables for special functions
 BANK_DOWN_IDX = 14
 BANK_UP_IDX = 15
@@ -105,7 +106,7 @@ def scale_color(color, brightness):
     b = int(color[2] * brightness)
     return (r, g, b)
 
-def display_velocity(velocity_value, color=WHITE):
+def display_velocity(velocity_value, is_currently_displaying_velocity=True, color=WHITE):
     """
     Displays the velocity on the NeoPixel grid by lighting up pixels in steps.
     Updates only when the velocity crosses into a new step.
@@ -113,6 +114,7 @@ def display_velocity(velocity_value, color=WHITE):
     Args:
         velocity_value (int): MIDI velocity value (0-127).
         color (tuple, optional): Base RGB color for the pixels. Defaults to WHITE.
+        is_currently_displaying_velocity (bool): Flag to indicate if velocity is currently being displayed.
 
     Returns:
         None
@@ -126,36 +128,51 @@ def display_velocity(velocity_value, color=WHITE):
         if velocity_value <= threshold:
             step = i + 1
             break
-    # Avoid updating if the displayed step hasn't changed
-    # We'll need to store the previous step value; let's use a global variable
+
     global previous_velocity_step
 
-    if step == previous_velocity_step:
-        # No change in step; do not update display
+    if step == previous_velocity_step and is_currently_displaying_velocity:
+        # No change in step and currently displaying velocity; do not update display
         return
-    else:
-        previous_velocity_step = step  # Update the stored step
-
-    # Clear the display
-    clear_pixels()
 
     # Define the lighting order from bottom left to top right
     light_order = [15, 14, 13, 12,
                    8, 9, 10, 11,
                    7, 6, 5, 4,
                    0, 1, 2, 3]
+    
+    if not is_currently_displaying_velocity:
+        for idx in range(0, step):
+            brightness = calculate_brightness(idx + 1)
+            scaled_color = scale_color(color, brightness)
+            pixels[light_order[idx]] = scaled_color
 
-    # Light up pixels according to the current step
-    for idx in range(step):
-        # pixel_idx = pixels_mapped.index(idx)
-        # Calculate brightness for this step
-        brightness = calculate_brightness(step)
-        scaled_color = scale_color(color, brightness)
-        pixels[light_order[idx]] = scaled_color
+    if step > previous_velocity_step:
+        # Light up the next pixel(s)
+        for idx in range(previous_velocity_step, step):
+            brightness = calculate_brightness(step)
+            scaled_color = scale_color(color, brightness)
+            pixels[light_order[idx]] = scaled_color
+    else:
+        # Turn off the previous pixel(s)
+        for idx in range(step, previous_velocity_step):
+            pixels[light_order[idx]] = BLACK
 
+    previous_velocity_step = step  # Update the stored step
     pixels.show()
 # Function to draw a letter 'C' on the pixels with a specified color
 def draw_C(color=BLUE, sleeptime=0.2):
+    """
+    Draws the letter 'C' on an LED matrix using the specified color.
+
+    Args:
+        color (tuple): The color to use for drawing the 'C'. Default is BLUE.
+        sleeptime (float): The time to wait before toggling the color to BLACK. Default is 0.2 seconds.
+
+    The function lights up specific pixels to form the shape of the letter 'C' on an LED matrix.
+    It toggles the color between the specified color and BLACK with a delay specified by sleeptime.
+    """
+    clear_pixels()
     i = 0
     while i < 2:
         pixels[0] = color
@@ -216,6 +233,15 @@ def draw_HI(color=BLUE):
 
 # Function to draw a letter 'N' on the pixels with a specified color
 def draw_N(color=ORANGE, sleeptime=0.2):
+    """
+    Draws the letter 'N' on a pixel display with the specified color and sleep time.
+
+    Args:
+        color (tuple): The color to draw the letter 'N'. Default is ORANGE.
+        sleeptime (float): The time to sleep between color changes. Default is 0.2 seconds.
+
+    The function lights up specific pixels to form the letter 'N' and alternates the color with BLACK after a specified sleep time.
+    """
     clear_pixels()
     i = 0
     while i < 2:
@@ -238,18 +264,28 @@ def draw_N(color=ORANGE, sleeptime=0.2):
 
 def draw_NC(color=CYAN):
     """
-    Draws an indication for N+C mode on the display.
+    Draws a pattern representing the N+C mode on the display.
+
+    This function first clears the pixels, then draws the pattern for 'N' 
+    with a specified sleep time, clears the pixels again, and finally 
+    draws the pattern for 'C' with the same sleep time. Additionally, 
+    it lights up all corners of the display with the specified color.
+
+    Args:
+        color (tuple): The color to use for lighting up the corners. 
+                       Defaults to CYAN.
     """
+
     clear_pixels()
     draw_N(sleeptime=0.15)
     clear_pixels()
 
-    # Implement your desired pattern to represent N+C mode
-    # For example, light up all corners
+    # Draw Slash
     pixels[15] = color
     pixels[9] = color
     pixels[5] = color
     pixels[3] = color
+
     pixels.show()
     time.sleep(0.15)
     clear_pixels()
@@ -277,7 +313,7 @@ def draw_lock_icon(color=RED):
 
     sleep_time = 0
     for j in (7,0,1,2,5): # animate locking
-        sleep_time = sleep_time + 0.025
+        sleep_time = sleep_time + 0.015
         time.sleep(sleep_time)
         pixels[j] = color
     
@@ -310,7 +346,7 @@ def draw_unlock_icon(color=GREEN):
     
     sleep_time = 0
     for j in (5,2,1,0,7): # animate unlocking
-        sleep_time = sleep_time + 0.025
+        sleep_time = sleep_time + 0.015
         time.sleep(sleep_time)
         pixels[j] = BLACK
 
@@ -320,10 +356,8 @@ def draw_unlock_icon(color=GREEN):
     time.sleep(0.25)
     clear_pixels()
 
-# draw_lock_icon()
-# draw_unlock_icon()
 
-def draw_number(number, color=WHITE):
+def display_bank_number(number, color=WHITE):
     """
     Lights up the specified number of pixels on the NeoPixel grid,
     starting from the bottom left (pixel 0).
@@ -382,7 +416,7 @@ def display_midi_bank_up(bank_number):
     Returns:
         None
     """
-    draw_number(bank_number, GREEN)
+    display_bank_number(bank_number, GREEN)
 
 def display_midi_bank_down(bank_number):
     """
@@ -396,7 +430,7 @@ def display_midi_bank_down(bank_number):
     Returns:
         None
     """
-    draw_number(bank_number, RED)
+    display_bank_number(bank_number, RED)
 
 def blink_next_color():
     """
@@ -482,7 +516,13 @@ def set_pixel_color_note(idx):
     """
     pixels[get_pixel(idx)] = ORANGE
 
-def set_pixel_color_nc(idx):
+def set_pad_pixel_color_nc(idx):
+    """
+    Sets the color of a specific pad pixel to cyan.
+
+    Args:
+        idx (int): The index of the pad pixel to be colored.
+    """
     pixels[get_pixel(idx)] = CYAN
 
 def clear_pixel(idx):
@@ -513,4 +553,27 @@ def update_cc_pixels(latch_ary):
             set_pixel_color_cc(idx, refresh=True)
         else:
             clear_pixel(idx)
+
+def update_pad_led(mode, idx, active):
+    """
+    Updates the LED for a pad based on the mode and active state.
+
+    Args:
+        mode (str): Current mode ('Note', 'CC', 'N+C').
+        idx (int): Index of the pad.
+        active (bool): True to turn on the LED, False to turn it off.
+    """
+    if mode == 'Note':
+        pixel_color = ORANGE
+    elif mode == 'CC':
+        pixel_color = COLORS[selected_color_idx]
+    elif mode == 'N+C':
+        pixel_color = CYAN
+    else:
+        pixel_color = BLACK
+
+    if active:
+        pixels[get_pixel(idx)] = pixel_color
+    else:
+        clear_pixel(idx)
 

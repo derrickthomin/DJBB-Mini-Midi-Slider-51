@@ -24,7 +24,7 @@ from settings import debug_print, load_cc_vals_from_file
 DOUBLE_PRESS_INTERVAL = 0.3  # seconds
 
 # Button Pins Setup
-FN_BTN_PIN = board.GP1
+FUNCTION_BUTTON_PIN = board.GP1
 
 DRUMPAD_BTN_PINS = [
     board.GP17, board.GP16, board.GP15, board.GP14,
@@ -90,18 +90,18 @@ class ModeManager:
         if self.is_cc_mode:
             self.cc_latch_active = not self.cc_latch_active
             if self.cc_latch_active:
-                print("CC Latch Mode Enabled")
+                debug_print("CC Latch Mode Enabled")
                 draw_lock_icon()
             else:
-                print("CC Latch Mode Disabled")
+                debug_print("CC Latch Mode Disabled")
                 draw_unlock_icon()
         else:
             self.note_latch_active = not self.note_latch_active
             if self.note_latch_active:
-                print("Note Latch Mode Enabled")
+                debug_print("Note Latch Mode Enabled")
                 draw_lock_icon()
             else:
-                print("Note Latch Mode Disabled")
+                debug_print("Note Latch Mode Disabled")
                 draw_unlock_icon()
 
 
@@ -113,7 +113,7 @@ class ButtonHandler:
         self.mode_manager = mode_manager
 
         # Initialize FN button
-        fn_input = digitalio.DigitalInOut(FN_BTN_PIN)
+        fn_input = digitalio.DigitalInOut(FUNCTION_BUTTON_PIN)
         fn_input.direction = digitalio.Direction.INPUT
         fn_input.pull = digitalio.Pull.UP
         self.fn_button = Button(fn_input)
@@ -140,9 +140,9 @@ class ButtonHandler:
 
         # FN Button logic
         if self.fn_button.rose:
-            print("FN Button Released")
+            debug_print("FN Button Released")
             if self.fn_button_used_for_override:
-                print("FN Button was used for latch override; skipping mode toggle")
+                debug_print("FN Button was used for latch override; skipping mode toggle")
                 self.fn_release_count = 0
                 self.fn_action_triggered = False
                 self.fn_button_used_for_override = False  # Reset the flag
@@ -157,10 +157,10 @@ class ButtonHandler:
         # Handle FN button single and double press actions
         if self.fn_release_count > 0 and (current_time - self.last_fn_release_time) > DOUBLE_PRESS_INTERVAL:
             if self.fn_release_count == 1 and not self.fn_action_triggered:
-                print("Single FN Press Detected: Toggling CC/Note Mode")
+                debug_print("Single FN Press Detected: Toggling CC/Note Mode")
                 self.mode_manager.toggle_mode_cc_note()
             elif self.fn_release_count >= 2:
-                print("Double FN Press Detected: Toggling Latch Modes")
+                debug_print("Double FN Press Detected: Toggling Latch Modes")
                 self.mode_manager.toggle_latch_mode()
             self.fn_release_count = 0
             self.fn_action_triggered = False
@@ -179,7 +179,7 @@ class ButtonHandler:
 
                     # Light up the button when held in CC mode with latch disabled
                     if not self.mode_manager.cc_latch_active and not self.mode_manager.cc_button_latched[idx]:
-                        print(f"Button {idx} held in CC mode with latch disabled")
+                        debug_print(f"Button {idx} held in CC mode with latch disabled")
                         set_pixel_color_cc(idx)
                 else:
                     self.handle_note_mode_button_press(idx)
@@ -191,7 +191,7 @@ class ButtonHandler:
                 if self.mode_manager.is_cc_mode:
                     self.handle_cc_mode_button_release(idx)
                     if not self.mode_manager.cc_latch_active and not self.mode_manager.cc_button_latched[idx]:
-                        print(f"Button {idx} released in CC mode with latch disabled")
+                        debug_print(f"Button {idx} released in CC mode with latch disabled")
                         clear_pixel(idx)
                 else:
                     self.handle_note_mode_button_release(idx)
@@ -211,34 +211,34 @@ class ButtonHandler:
         """
         if idx == BANK_DOWN_IDX and not self.fn_button.value:
             blink_next_color()
-            self.fn_action_triggered = True
+            self.function_button_state = FN_STATE_USED
         elif idx == BANK_UP_IDX and not self.fn_button.value:
             blink_prev_color()
-            self.fn_action_triggered = True
+            self.function_button_state = FN_STATE_USED
         else:
             if not self.fn_button.value:
                 self.fn_button_used_for_override = True  # Set the flag
                 if self.mode_manager.cc_latch_active:
                     # Temporarily disable latch
-                    print(f"Button {idx} pressed with FN button in CC latch mode (temporary unlatch)")
+                    debug_print(f"Button {idx} pressed with FN button in CC latch mode (temporary unlatch)")
                     set_pixel_color_cc(idx)
                 else:
                     # Override latch mode for this pad
                     self.mode_manager.cc_button_latched[idx] = not self.mode_manager.cc_button_latched[idx]
                     if self.mode_manager.cc_button_latched[idx]:
-                        print(f"Button {idx} latched in CC mode via FN button")
+                        debug_print(f"Button {idx} latched in CC mode via FN button")
                         set_pixel_color_cc(idx)
                     else:
-                        print(f"Button {idx} unlatched in CC mode via FN button")
+                        debug_print(f"Button {idx} unlatched in CC mode via FN button")
                         clear_pixel(idx)
             else:
                 if self.mode_manager.cc_latch_active:
                     self.mode_manager.cc_button_latched[idx] = not self.mode_manager.cc_button_latched[idx]
                     if self.mode_manager.cc_button_latched[idx]:
-                        print(f"Button {idx} latched in CC mode")
+                        debug_print(f"Button {idx} latched in CC mode")
                         set_pixel_color_cc(idx)
                     else:
-                        print(f"Button {idx} unlatched in CC mode")
+                        debug_print(f"Button {idx} unlatched in CC mode")
                         clear_pixel(idx)
                 else:
                     # In non-latch mode, button held state is already updated
@@ -250,7 +250,7 @@ class ButtonHandler:
         """
         if not self.fn_button.value and self.mode_manager.cc_latch_active:
             # In latch mode with FN button held, temporary unlatch; clear LED
-            print(f"Button {idx} released with FN button in CC latch mode")
+            debug_print(f"Button {idx} released with FN button in CC latch mode")
             clear_pixel(idx)
 
     def handle_note_mode_button_press(self, idx):
@@ -260,14 +260,14 @@ class ButtonHandler:
         if idx == BANK_DOWN_IDX and not self.fn_button.value:
             bank_idx = change_midi_bank(False)
             display_midi_bank_down(bank_idx)
-            print("Bank Down")
-            self.fn_action_triggered = True
+            debug_print("Bank Down")
+            self.function_button_state = FN_STATE_USED
             return
         elif idx == BANK_UP_IDX and not self.fn_button.value:
             bank_idx = change_midi_bank(True)
             display_midi_bank_up(bank_idx)
-            print("Bank Up")
-            self.fn_action_triggered = True
+            debug_print("Bank Up")
+            self.function_button_state = FN_STATE_USED
             return
 
         if self.mode_manager.note_button_latched[idx]:
@@ -275,13 +275,13 @@ class ButtonHandler:
             if not self.fn_button.value and self.mode_manager.note_latch_active:
                 # FN button held in latch mode: temporary unlatch behavior
                 self.fn_button_used_for_override = True  # Set the flag
-                print(f"Button {idx} pressed with FN button in Note latch mode (temporary unlatch)")
+                debug_print(f"Button {idx} pressed with FN button in Note latch mode (temporary unlatch)")
                 send_midi_note_on(idx)
                 set_pixel_color_note(idx)
             else:
                 # Unlatch the pad
                 self.mode_manager.note_button_latched[idx] = False
-                print(f"Button {idx} unlatched in Note mode")
+                debug_print(f"Button {idx} unlatched in Note mode")
                 send_midi_note_off(idx)
                 clear_pixel(idx)
         else:
@@ -289,20 +289,20 @@ class ButtonHandler:
                 self.fn_button_used_for_override = True  # Set the flag
                 if self.mode_manager.note_latch_active:
                     # FN button held in latch mode: temporary unlatch behavior
-                    print(f"Button {idx} pressed with FN button in Note latch mode (temporary unlatch)")
+                    debug_print(f"Button {idx} pressed with FN button in Note latch mode (temporary unlatch)")
                     send_midi_note_on(idx)
                     set_pixel_color_note(idx)
                 else:
                     # Override latch mode for this pad
                     self.mode_manager.note_button_latched[idx] = True
-                    print(f"Button {idx} latched in Note mode via FN button")
+                    debug_print(f"Button {idx} latched in Note mode via FN button")
                     send_midi_note_on(idx)
                     set_pixel_color_note(idx)
             else:
                 if self.mode_manager.note_latch_active:
                     # In latch mode: latch the pad
                     self.mode_manager.note_button_latched[idx] = True
-                    print(f"Button {idx} latched in Note mode")
+                    debug_print(f"Button {idx} latched in Note mode")
                     send_midi_note_on(idx)
                     set_pixel_color_note(idx)
                 else:
@@ -324,7 +324,7 @@ class ButtonHandler:
             # FN button held
             if self.mode_manager.note_latch_active:
                 # Temporary unlatch behavior
-                print(f"Button {idx} released with FN button in Note latch mode")
+                debug_print(f"Button {idx} released with FN button in Note latch mode")
                 send_midi_note_off(idx)
                 clear_pixel(idx)
             else:
@@ -345,7 +345,7 @@ class SliderHandler:
         """
         sliders_changed = sliders.update()
         if sliders_changed:
-            for idx, slider_changed in enumerate(sliders.midi_val_chg_status):
+            for idx, slider_changed in enumerate(sliders.midi_value_changed):
                 if not slider_changed:
                     continue
 
@@ -392,15 +392,15 @@ import board
 import digitalio
 
 # Set up the button
-FN_BTN_PIN = board.GP1
-fn_button_io = digitalio.DigitalInOut(FN_BTN_PIN)
+FUNCTION_BUTTON_PIN = board.GP1
+fn_button_io = digitalio.DigitalInOut(FUNCTION_BUTTON_PIN)
 fn_button_io.direction = digitalio.Direction.INPUT
 fn_button_io.pull = digitalio.Pull.UP
 
 # Check if the button is held down at startup
 if not fn_button_io.value:
     # Button is held, enable USB drive mode
-    print("Booting into USB drive mode")
+    debug_print("Booting into USB drive mode")
     storage.remount("/", readonly=False)
     storage.enable_usb_drive()
 else:
@@ -419,7 +419,7 @@ from adafruit_midi.note_on import NoteOn
 from adafruit_midi.note_off import NoteOff
 from adafruit_midi.control_change import ControlChange
 import usb_midi
-from settings import load_midi_channel_from_file
+from settings import load_midi_channel_from_file, debug_print
 
 # Create a MIDI object
 channel = load_midi_channel_from_file()
@@ -451,7 +451,7 @@ def send_midi_note_on(index, velocity=100):
     """
     note = current_midi_notes[index]
     midi.send(NoteOn(note, velocity))
-    print(f"Sending note {note} at index {index} with velocity {velocity}")
+    debug_print(f"Sending note {note} at index {index} with velocity {velocity}")
 
 def send_midi_note_off(index):
     """
@@ -500,419 +500,734 @@ def send_control_change(control_change, value):
         control_change (int): The control change number.
         value (int): The value to set for the control change.
     """
-    print(f"Sending CC {control_change} with value {value}")
+    debug_print(f"Sending CC {control_change} with value {value}")
     midi.send(ControlChange(control_change, value))
-
 #--- END midi.py ---#
 
 #--- BEGIN sliders.py ---#
+# sliders.py
+
+"""
+Slider Module
+
+This module handles reading the values from the sliders (slide potentiometers),
+applying Exponential Moving Average (EMA) smoothing, converting them to MIDI values,
+and detecting significant changes to determine when to send updated MIDI CC messages.
+
+Provides:
+- midi_value_changed: List indicating which sliders have changed significantly.
+- current_slide_pots_midi: Current MIDI values for the sliders.
+- update(): Function to update slider readings and detect changes.
+
+Assumptions:
+- Sliders are connected to specified analog pins.
+- Hardware setup requires inverting the raw analog readings (max voltage corresponds to min reading).
+"""
+
 import board
 import analogio
+from settings import debug_print
 
 # Constants
-SLIDE_POT_CHANGE_THRESHOLD = 1000
-SLIDE_CHECK_COUNTER = 0
-ANY_SLIDE_CHANGED = False
-slide_values_changed = [False, False, False]
-current_slide_pots_midi = [0, 0, 0]
-midi_val_chg_status = [False, False, False]  # Check this to only send new vals when changed
+SLIDER_CHANGE_THRESHOLD = 2    # Minimum change in MIDI value to trigger an update
+EMA_ALPHA = 0.4                # EMA smoothing factor (0 < alpha ≤ 1)
+NUM_SLIDERS = 3                # Number of sliders
 
-# Set up slide potentiometers
-slide_potentiometers = [
-    analogio.AnalogIn(board.GP26),
-    analogio.AnalogIn(board.GP27),
-    analogio.AnalogIn(board.GP28)
-]
+# Set up slide potentiometers (adjust pins as needed)
+SLIDE_POT_PINS = [board.GP26, board.GP27, board.GP28]
+slide_potentiometers = [analogio.AnalogIn(pin) for pin in SLIDE_POT_PINS]
 
-slide_values = [[0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0]]  # Track 6 for averaging. last always most recent
+# Initialize variables
+ema_values = [0.0] * NUM_SLIDERS                 # EMA values for each slider
+current_slide_pots_midi = [0] * NUM_SLIDERS      # Current MIDI values for sliders
+midi_value_changed = [False] * NUM_SLIDERS       # Flags indicating if MIDI value changed
 
-# Translate slide potentiometer value to MIDI value
+def reset_changes():
+    for i in range(NUM_SLIDERS):
+        midi_value_changed[i] = False
+
 def slide_pot_to_midi(slide_value):
     """
-    Convert slide potentiometer value to MIDI value.
+    Convert slide potentiometer value (0-65535) to MIDI value (0-127).
+    
+    Args:
+        slide_value (float): The raw or smoothed analog value from the slider.
+    
+    Returns:
+        int: The corresponding MIDI value (0-127).
     """
+    # Ensure slide_value is within valid range
+    slide_value = max(0, min(65535, slide_value))
     return int((slide_value / 65535) * 127)
 
+def initialize_ema_values():
+    """
+    Initialize the EMA values with the current slider readings.
+    """
+    for idx, slide in enumerate(slide_potentiometers):
+        raw_value = slide.value
+        inverted_value = 65535 - raw_value   # Invert based on hardware setup
+        ema_values[idx] = inverted_value     # Initialize EMA to current value
 
 def update():
     """
-    Update slide potentiometers.
+    Update slide potentiometers using EMA and check for significant MIDI value changes.
+
+    Returns:
+        bool: True if any slider has a significant change, False otherwise.
     """
-    global ANY_SLIDE_CHANGED
-    global slide_values_changed
-    global current_slide_pots_midi
-    global midi_val_chg_status
-
-    # Update pots
-    ANY_SLIDE_CHANGED = False
-    slide_values_changed = [False, False, False]
+    any_slider_changed = False
     for idx, slide in enumerate(slide_potentiometers):
-        current_val = 65535 - slide.value
-        slide_values[idx].append(current_val)
+        # Read current raw value from the slider
+        raw_value = slide.value
+        inverted_value = 65535 - raw_value   # Invert based on hardware setup
 
-        # Compare the average of the most recent value plus the previous two values to the first 3 values in the list
-        average = sum(slide_values[idx][-3:]) / 3
-        prev_avg = sum(slide_values[idx][:3]) / 3
+        # Update EMA value
+        previous_ema = ema_values[idx]
+        ema = EMA_ALPHA * inverted_value + (1 - EMA_ALPHA) * previous_ema
+        ema_values[idx] = ema
 
-        midi_val_chg_status[idx] = False
-        if abs(average - prev_avg) > SLIDE_POT_CHANGE_THRESHOLD:
-            slide_values_changed[idx] = True
-            ANY_SLIDE_CHANGED = True
-            cur_midi = slide_pot_to_midi(average)
-            if cur_midi == current_slide_pots_midi[idx]:
-                midi_val_chg_status[idx] = False
-            else:
-                print(f"prev: {current_slide_pots_midi[idx]} new: {cur_midi}")
-                current_slide_pots_midi[idx] = cur_midi
-                midi_val_chg_status[idx] = True
+        # Convert the EMA value to a MIDI value
+        midi_value = slide_pot_to_midi(ema)
 
-        if len(slide_values[idx]) > 7:
-            slide_values[idx].pop(0)
+        # Check if the MIDI value has changed beyond the threshold
+        previous_midi_value = current_slide_pots_midi[idx]
+        if abs(midi_value - previous_midi_value) >= SLIDER_CHANGE_THRESHOLD:
+            # Significant change detected
+            current_slide_pots_midi[idx] = midi_value
+            midi_value_changed[idx] = True
+            any_slider_changed = True
+            # Debug print statement (optional)
+            debug_print(f"Slider {idx + 1} MIDI value changed from {previous_midi_value} to {midi_value}")
+        else:
+            midi_value_changed[idx] = False
+    return any_slider_changed
 
-    return ANY_SLIDE_CHANGED
-
-
-
-
-
-    
+# Initialize EMA values on startup
+initialize_ema_values()
 #--- END sliders.py ---#
 
-#--- BEGIN code.py ---#
-import board
-from adafruit_debouncer import Button
-from midi import (
-    send_midi_note_on, send_midi_note_off, clear_all_notes,
-    change_midi_bank, send_control_change
-)
+#--- BEGIN slider_handler.py ---#
+import time
+from midi import send_control_change, send_midi_note_off, send_midi_note_on
+from display import display_velocity, clear_pixels
+from settings import slide_cc_vals, slide_cc_vals_held, debug_print
 import sliders
 
-from display import (
-    display_midi_bank_down, display_midi_bank_up,
-    BANK_DOWN_IDX, BANK_UP_IDX, draw_C, draw_N,
-    set_pixel_color_cc, set_pixel_color_note, clear_pixel,
-    update_cc_pixels, draw_HI, blink_next_color, blink_prev_color,
-    draw_lock_icon, draw_unlock_icon
-)
-from settings import debug_print, load_cc_vals_from_file
-import digitalio
-import time  # For timing
-
-# Button Pins Setup
-FN_BTN_PIN = board.GP1
-fn_button = digitalio.DigitalInOut(FN_BTN_PIN)
-fn_button.direction = digitalio.Direction.INPUT
-fn_button.pull = digitalio.Pull.UP
-fn_button = Button(fn_button)
-
-DRUMPAD_BTN_PINS = [
-    board.GP17, board.GP16, board.GP15, board.GP14,
-    board.GP19, board.GP18, board.GP12, board.GP13,
-    board.GP21, board.GP9, board.GP6, board.GP7,
-    board.GP4, board.GP0, board.GP2, board.GP5
-]
-
-# Initialize latch counts separately for CC and Note modes
-LATCH_COUNT_CC = 0  # How many buttons are latched in CC mode
-LATCH_COUNT_NOTE = 0  # How many buttons are latched in Note mode
-
-# Used in CC only mode. If a button is latched, the slide pot values will be used to send CC messages
-btn_latched_cc = [False] * 16
-
-# Track latched state for Note mode
-btn_latched_note = [False] * 16
-
-drumpad_buttons = []
-
-for pin in DRUMPAD_BTN_PINS:
-    button = digitalio.DigitalInOut(pin)
-    button.direction = digitalio.Direction.INPUT
-    button.pull = digitalio.Pull.UP
-    drumpad_buttons.append(Button(button))
-
-all_cc_vals = load_cc_vals_from_file()
-slide_cc_vals = all_cc_vals[0]
-slide_cc_vals_held = all_cc_vals[1]
-cc_latch_mode = True
-note_latch_mode = False
-# slide_cc_vals = [3, 9, 85]
-
-# Track Note held state
-button_held_array = [False] * 16
-CC_ONLY_MODE = False   # If True, only CC messages will be sent. No notes.
-
-def toggle_cc_only_mode():
+class SliderHandler:
     """
-    Toggles the CC Only mode.
+    Handles slider value changes and sends MIDI CC messages.
 
-    This function toggles the global variable `CC_ONLY_MODE` between True and False.
-    When `CC_ONLY_MODE` is True, it performs certain actions such as clearing all notes,
-    clearing pixels, and drawing the letter 'C'. When `CC_ONLY_MODE` is False, it resets
-    the `button_held_array` list, clears pixels, and draws the letter 'N'.
-
-    It also ensures that latch states for both CC and Note modes are retained appropriately.
+    Attributes:
+        mode_manager (ModeManager): Reference to the ModeManager instance.
+        button_handler (ButtonHandler): Reference to the ButtonHandler instance.
     """
-    global CC_ONLY_MODE, LATCH_COUNT_CC, LATCH_COUNT_NOTE
 
-    CC_ONLY_MODE = not CC_ONLY_MODE
-    if CC_ONLY_MODE:
-        clear_all_notes()             # Don't leave any notes hanging
-        draw_C()
+    DEBOUNCE_DELAY = 0.05  # 50ms debounce delay
 
-        # Retain CC latches and clear Note latches
-        for idx in range(16):
-            button_held_array[idx] = btn_latched_cc[idx]
-            if btn_latched_note[idx]:
-                # Unlatch notes when switching to CC mode
-                send_midi_note_off(idx)
-                btn_latched_note[idx] = False
+    def __init__(self, mode_manager, button_handler):
+        self.mode_manager = mode_manager
+        self.button_handler = button_handler
+        self.current_any_pad_active = False
+        self.last_change_time = time.monotonic()
 
-        # Reset Note latch count
-        LATCH_COUNT_NOTE = 0
+    def handle_slider_changes(self, any_pad_active):
+        """
+        Handles changes in slider values and sends appropriate MIDI messages.
 
-        update_cc_pixels(btn_latched_cc) # Redraw latched CC pixels
-    else:
-        # Switching back to Note mode
-        for idx in range(16):
-            button_held_array[idx] = btn_latched_note[idx]
-            if btn_latched_cc[idx]:
-                # Unlatch CC when switching to Note mode
-                btn_latched_cc[idx] = False
-                clear_pixel(idx)
+        Args:
+            any_pad_active (bool): Indicates if any pad is currently active.
+        """
+        current_time = time.monotonic()
+        sliders_changed = sliders.update()
 
-        # Reset CC latch count
-        LATCH_COUNT_CC = 0
-
-        draw_N()
-
-        # Update LEDs for latched notes
-        for idx in range(16):
-            if btn_latched_note[idx]:
-                set_pixel_color_note(idx)
+        if any_pad_active != self.current_any_pad_active:
+            if current_time - self.last_change_time > self.DEBOUNCE_DELAY:
+                self.current_any_pad_active = any_pad_active
+                self.last_change_time = current_time
+                debug_print("[SliderHandler] Pad active state changed. Skipping slider processing this cycle.")
+                return
             else:
-                clear_pixel(idx)
+                debug_print("[SliderHandler] Debouncing pad active state change.")
+                return  # Still within debounce period
 
-def toggle_latch_modes():
-    """
-    Toggles the CC and Note Latch modes.
+        if sliders_changed:
+            if self.button_handler.fn_button_pressed:
+                self.button_handler.set_fn_button_state_used()
+            mode = self.mode_manager.mode
+            if mode == 'Note':
+                self.handle_note_mode_sliders()
+            elif mode == 'CC':
+                self.handle_cc_mode_sliders(any_pad_active)
+            elif mode == 'N+C':
+                self.handle_nc_mode_sliders(any_pad_active)
+            sliders.reset_changes()
 
-    This function toggles both `cc_latch_mode` and `note_latch_mode`.
-    It updates the display and provides debug information.
-    """
-    global cc_latch_mode, note_latch_mode, CC_ONLY_MODE
-
-    if CC_ONLY_MODE:
-        cc_latch_mode = not cc_latch_mode
-        if cc_latch_mode:
-            print("CC Latch Mode Enabled")
-            draw_lock_icon()  # Optionally, update display or perform other actions
-        else:
-            print("CC Latch Mode Disabled")
-            draw_unlock_icon() 
-
-    if not CC_ONLY_MODE:
-        note_latch_mode = not note_latch_mode
-        if note_latch_mode:
-            print("Note Latch Mode Enabled")
-            draw_lock_icon()
-            # Optionally, update display or perform other actions
-        else:
-            print("Note Latch Mode Disabled")
-            draw_unlock_icon()
-
-
-draw_HI()  # Splash screen
-
-# Initialize FN button state tracking variables for double press detection
-last_fn_release_time = 0
-fn_release_count = 0
-DOUBLE_PRESS_INTERVAL = 0.3  # seconds
-fn_action_triggered = False  
-
-while True:
-    current_time = time.monotonic()
-    fn_button.update()
-
-    # ------- FN Button Release Detection -------
-    if fn_button.rose:
-        print("FN Button Released")
-        # Check if the release is within the double press interval
-        if (current_time - last_fn_release_time) < DOUBLE_PRESS_INTERVAL:
-            fn_release_count += 1
-        else:
-            fn_release_count = 1
-        last_fn_release_time = current_time
-
-    # ------- Handle Button Actions -------
-    # Note: We update sliders here to ensure any changes are captured
-    any_slide_changed = sliders.update()
-    any_button_held = False
-
-    # ------- Button Loop -------
-    for idx, button in enumerate(drumpad_buttons):
-        button.update()
-
-        # ------- New Button Press -------
-        if button.fell:
-
-            # -- CC mode --
-
-            if CC_ONLY_MODE:
-
-                # Next Color
-                if idx == BANK_DOWN_IDX and not fn_button.value:
-                    blink_next_color()
-                    fn_action_triggered = True  # Action triggered while FN is pressed
-                    continue
-
-                # Prev color
-                if idx == BANK_UP_IDX and not fn_button.value:
-                    blink_prev_color()
-                    fn_action_triggered = True  # Action triggered while FN is pressed
-                    continue
-
-                # Toggle CC latch
-                if cc_latch_mode:
-                    btn_latched_cc[idx] = not btn_latched_cc[idx]
-
-                    if btn_latched_cc[idx]:
-                        print(f"Button {idx} latched in CC mode")
-                        LATCH_COUNT_CC += 1
-                        set_pixel_color_cc(idx)
-                    else:
-                        print(f"Button {idx} unlatched in CC mode")
-                        LATCH_COUNT_CC -= 1
-                        clear_pixel(idx)
-
-            # -- Note mode --
-            else:
-                # Change MIDI Bank down
-                if idx == BANK_DOWN_IDX and not fn_button.value:
-                    bank_idx = change_midi_bank(False)
-                    display_midi_bank_down(bank_idx)
-                    print("Bank Down")
-                    fn_action_triggered = True  # Action triggered while FN is pressed
-                    continue
-
-                # Change MIDI Bank up
-                if idx == BANK_UP_IDX and not fn_button.value:
-                    bank_idx = change_midi_bank(True)
-                    display_midi_bank_up(bank_idx)
-                    print("Bank Up")
-                    fn_action_triggered = True  # Action triggered while FN is pressed
-                    continue
-                
-                # ----------- Sending Note On - not latched ------------
-                if not note_latch_mode:
-                    # In non-latch mode: send note on immediately
-                    send_midi_note_on(idx)
-                    set_pixel_color_note(idx)
-                    btn_latched_note[idx] = False  # Ensure it's not latched
-                    continue
-
-                if note_latch_mode:
-                    # In latch mode: toggle the latch state
-                    btn_latched_note[idx] = not btn_latched_note[idx]
-
-                    if btn_latched_note[idx]:
-                        # Latch the note on
-                        print(f"Button {idx} latched in Note mode")
-                        send_midi_note_on(idx)
-                        set_pixel_color_note(idx)
-                        LATCH_COUNT_NOTE += 1
-                    else:
-                        # Unlatch the note off
-                        print(f"Button {idx} unlatched in Note mode")
+    def handle_note_mode_sliders(self):
+        """
+        Handles slider changes in 'Note' mode.
+        """
+        if sliders.midi_value_changed[0]:  # Slider 1
+            current_slider1_value = sliders.current_slide_pots_midi[0]
+            if self.button_handler.fn_button_pressed:
+                self.mode_manager.global_velocity = current_slider1_value
+                debug_print(f"Global velocity changed to {current_slider1_value}")
+                display_velocity(self.mode_manager.global_velocity)
+                self.button_handler.set_fn_button_state_used()
+            elif any(self.mode_manager.pad_held_states):
+                self.button_handler.per_pad_velocity_adjustment = True
+                for idx, is_held in enumerate(self.mode_manager.pad_held_states):
+                    if is_held:
+                        self.mode_manager.pad_velocities[idx] = current_slider1_value
+                        debug_print(f"Pad {idx} velocity changed to {current_slider1_value}")
                         send_midi_note_off(idx)
-                        clear_pixel(idx)
-                        LATCH_COUNT_NOTE -= 1
-
-        # ------- New Button Release -------
-        if button.rose and not CC_ONLY_MODE:
-            if not note_latch_mode:
-                # In non-latch note mode: send off on release
-                send_midi_note_off(idx)
-                button_held_array[idx] = False
-                clear_pixel(idx)
+                        send_midi_note_on(idx, current_slider1_value)
             else:
-                # In latch mode: do not send off on release
+                send_control_change(slide_cc_vals[0], current_slider1_value)
+
+        for idx, slider_changed in enumerate(sliders.midi_value_changed):
+            if idx == 0:
+                continue  # Slider 1 already handled
+            if slider_changed:
+                current_value = sliders.current_slide_pots_midi[idx]
+                send_control_change(slide_cc_vals[idx], current_value)
+
+    def handle_cc_mode_sliders(self, any_pad_active):
+        if not any_pad_active:
+            # No pads are active; send global CC messages if sliders changed
+            self.send_global_slider_cc_messages()
+            return
+
+        # Get list of active pads
+        active_pads = [idx for idx, active in enumerate(self.mode_manager.cc_pad_latched) if active]
+        active_pads.extend([idx for idx, held in enumerate(self.mode_manager.pad_held_states) if held and idx not in active_pads])
+
+        if not active_pads:
+            # No pads are latched or held; send global CC messages
+            self.send_global_slider_cc_messages()
+            return
+
+        for idx, slider_changed in enumerate(sliders.midi_value_changed):
+            if slider_changed:
+                current_value = sliders.current_slide_pots_midi[idx]
+                for pad_idx in active_pads:
+                    cc_num = slide_cc_vals_held[pad_idx][idx]
+                    send_control_change(cc_num, current_value)
+                    
+    def send_global_slider_cc_messages(self):
+        for idx, slider_changed in enumerate(sliders.midi_value_changed):
+            if slider_changed:
+                current_value = sliders.current_slide_pots_midi[idx]
+                send_control_change(slide_cc_vals[idx], current_value)
+
+    def handle_nc_mode_sliders(self, any_pad_active):
+        """
+        Handles slider changes in 'N+C' mode.
+
+        Args:
+            any_pad_active (bool): Indicates if any pad is currently active.
+        """
+        if any_pad_active:
+            for idx, slider_changed in enumerate(sliders.midi_value_changed):
+                if slider_changed:
+                    current_value = sliders.current_slide_pots_midi[idx]
+                    for pad_idx in range(16):
+                        if self.mode_manager.nc_pad_latched[pad_idx] or self.mode_manager.pad_held_states[pad_idx]:
+                            cc_num = slide_cc_vals_held[pad_idx][idx]
+                            send_control_change(cc_num, current_value)
+        else:
+            for idx, slider_changed in enumerate(sliders.midi_value_changed):
+                if slider_changed:
+                    current_value = sliders.current_slide_pots_midi[idx]
+                    send_control_change(slide_cc_vals[idx], current_value)
+                    
+#--- END slider_handler.py ---#
+
+#--- BEGIN code.py ---#
+# main.py
+
+import time
+from mode_manager import ModeManager
+from button_handler import ButtonHandler
+from slider_handler import SliderHandler
+from display import draw_HI
+from settings import debug_print
+
+def main():
+    # Initialize components
+    mode_manager = ModeManager()
+    button_handler = ButtonHandler(mode_manager)
+    slider_handler = SliderHandler(mode_manager, button_handler)
+    draw_HI()  # Display splash screen
+
+    while True:
+        current_time = time.monotonic()
+        any_pad_active, redraw_display = button_handler.update_buttons(current_time)
+        slider_handler.handle_slider_changes(any_pad_active)
+        if redraw_display:
+            mode_manager.refresh_display()
+
+if __name__ == "__main__":
+    main()
+#--- END code.py ---#
+
+#--- BEGIN button_handler.py ---#
+# button_handler.py
+
+import board
+import digitalio
+from adafruit_debouncer import Button
+from midi import send_midi_note_on, send_midi_note_off, change_midi_bank
+from display import (
+    set_pixel_color_note, set_pixel_color_cc, set_pad_pixel_color_nc,
+    clear_pixel, display_midi_bank_down, display_midi_bank_up,
+    blink_next_color, blink_prev_color, clear_pixels, update_pad_led
+)
+from settings import DOUBLE_PRESS_INTERVAL, HOLD_THRESHOLD, debug_print
+from display import BANK_DOWN_IDX, BANK_UP_IDX
+
+# FN button state constants
+FN_STATE_IDLE = 0        # FN button not pressed
+FN_STATE_PRESSED = 1     # FN button pressed but not yet used for any action
+FN_STATE_USED = 2        # FN button pressed and used for an action
+FN_STATE_HELD = 3        # FN button held beyond hold threshold
+NUM_PADS = 16
+
+class ButtonHandler:
+    """
+    Handles drum pad and FN button inputs.
+
+    Attributes:
+        mode_manager (ModeManager): Reference to the ModeManager instance.
+    """
+
+    def __init__(self, mode_manager):
+        self.mode_manager = mode_manager
+
+        # Initialize the FN button
+        fn_input = digitalio.DigitalInOut(board.GP1)
+        fn_input.direction = digitalio.Direction.INPUT
+        fn_input.pull = digitalio.Pull.UP
+        self.fn_button = Button(fn_input)
+        self.fn_button_pressed = False
+        # self.fn_used_for_action = False
+
+        # Initialize drum pad buttons
+        self.pad_buttons = []
+        pad_pins = [
+            board.GP17, board.GP16, board.GP15, board.GP14,
+            board.GP19, board.GP18, board.GP12, board.GP13,
+            board.GP21, board.GP9, board.GP6, board.GP7,
+            board.GP4, board.GP0, board.GP2, board.GP5
+        ]
+        for pin in pad_pins:
+            pad_input = digitalio.DigitalInOut(pin)
+            pad_input.direction = digitalio.Direction.INPUT
+            pad_input.pull = digitalio.Pull.UP
+            self.pad_buttons.append(Button(pad_input))
+
+        # FN button timing variables
+        self.last_fn_press_time = None
+        self.last_fn_release_time = 0
+        self.single_press_timer = 0
+        self.fn_press_count = 0
+        self.function_button_state = FN_STATE_IDLE
+
+        # Velocity adjustment flag
+        self.per_pad_velocity_adjustment = False
+    
+    def set_fn_button_state_used(self):
+        self.function_button_state = FN_STATE_USED
+
+    def update_buttons(self, current_time):
+        """
+        Update the state of all buttons and handle events.
+
+        Args:
+            current_time (float): The current time in seconds.
+
+        Returns:
+            bool: True if any pad is held or latched, False otherwise.
+        """
+        self.fn_button.update()
+        self.fn_button_pressed = not self.fn_button.value  # Active LOW
+        self.handle_fn_button_events(current_time)
+        any_pad_active = False
+        redraw_display = False
+
+        for idx, pad_button in enumerate(self.pad_buttons):
+            pad_button.update()
+            if pad_button.fell:
+                # Pad pressed
+                self.mode_manager.pad_held_states[idx] = True
+                redraw_display = self.handle_pad_press(idx)
+
+            if pad_button.rose:
+                # Pad released
+                self.mode_manager.pad_held_states[idx] = False
+                self.handle_pad_release(idx)
+
+            # Check if any pad is held or latched
+            if self.is_pad_active(idx):
+                any_pad_active = True
+
+        # If per-pad velocity adjustment was in progress and all pads are released
+        if not any(self.mode_manager.pad_held_states) and self.per_pad_velocity_adjustment:
+            clear_pixels()
+            if self.mode_manager.mode in ['Note', 'N+C']:
+                self.mode_manager.update_mode(self.mode_manager.mode)
+            self.per_pad_velocity_adjustment = False
+
+        return any_pad_active, redraw_display
+
+    def handle_fn_button_events(self, current_time):
+        if self.fn_button.fell:
+            # FN button pressed
+            self.last_fn_press_time = current_time
+            self.function_button_state = FN_STATE_PRESSED
+            debug_print("FN Button Pressed")
+
+        if self.fn_button_pressed:
+            # FN button is still pressed
+            hold_duration = current_time - self.last_fn_press_time
+            if hold_duration >= HOLD_THRESHOLD and self.function_button_state == FN_STATE_PRESSED:
+                self.function_button_state = FN_STATE_HELD
+                debug_print(f"FN Button held for {hold_duration:.2f}s; suppressing mode change on release")
+
+        if self.fn_button.rose:
+            # FN button released
+            hold_duration = current_time - self.last_fn_press_time
+            debug_print(f"FN Button Released after {hold_duration:.2f}s")
+
+            if self.function_button_state in {FN_STATE_USED, FN_STATE_HELD}:
+                # FN button was used for an action or held beyond threshold
+                debug_print("FN Button action suppressed; skipping mode change")
+                self.fn_press_count = 0
+            else:
+                # Handle single or double press
+                time_since_last_release = current_time - self.last_fn_release_time
+                if time_since_last_release < DOUBLE_PRESS_INTERVAL:
+                    self.fn_press_count += 1
+                    # Handle double press immediately
+                    if self.fn_press_count == 2:
+                        debug_print("Double FN Press Detected: Toggling Latch Modes")
+                        self.mode_manager.toggle_latch_mode()
+                        self.fn_press_count = 0  # Reset after action
+                        # Reset FN state after handling action
+                        self.function_button_state = FN_STATE_IDLE
+                else:
+                    self.fn_press_count = 1
+                    # Start new timer for single press
+                    self.single_press_timer = current_time
+                self.last_fn_release_time = current_time
+
+        # Handle single press after interval
+        if self.fn_press_count == 1 and (current_time - self.single_press_timer) >= DOUBLE_PRESS_INTERVAL:
+            if self.function_button_state == FN_STATE_PRESSED:
+                debug_print("Single FN Press Detected: Cycling Mode")
+                self.mode_manager.cycle_mode()
+                self.fn_press_count = 0  # Reset after action
+                # Reset FN state after handling action
+                self.function_button_state = FN_STATE_IDLE
+            else:
+                debug_print("FN Button action suppressed; skipping mode change")
+                self.fn_press_count = 0  # Reset after action
+                # Reset FN state after skipping action
+                self.function_button_state = FN_STATE_IDLE
+
+    def handle_pad_press(self, idx):
+        """
+        Handles pad press based on current mode.
+
+        Args:
+            idx (int): Index of the pad.
+        """
+        redraw_display = False # Set to True if display needs to be redrawn, like after changing banks
+
+        if self.mode_manager.mode == 'Note':
+            redraw_display = self.handle_note_mode_pad_press(idx)
+        elif self.mode_manager.mode == 'CC':
+            redraw_display = self.handle_cc_mode_pad_press(idx)
+        elif self.mode_manager.mode == 'N+C':
+            redraw_display = self.handle_nc_mode_pad_press(idx)
+            
+        return redraw_display
+
+    def handle_pad_release(self, idx):
+        """
+        Handles pad release based on current mode.
+
+        Args:
+            idx (int): Index of the pad.
+        """
+        if self.mode_manager.mode == 'Note':
+            self.handle_note_mode_pad_release(idx)
+        elif self.mode_manager.mode == 'CC':
+            self.handle_cc_mode_pad_release(idx)
+        elif self.mode_manager.mode == 'N+C':
+            self.handle_nc_mode_pad_release(idx)
+
+    # def is_pad_active(self, idx):
+    #     if self.mode_manager.mode == 'Note':
+    #         latched = self.mode_manager.note_pad_latched[idx]
+    #     elif self.mode_manager.mode == 'CC':
+    #         latched = self.mode_manager.cc_pad_latched[idx]
+    #     elif self.mode_manager.mode == 'N+C':
+    #         latched = self.mode_manager.nc_pad_latched[idx]
+    #     else:
+    #         latched = False
+
+    #     return latched or self.mode_manager.pad_held_states[idx]
+    
+    def is_pad_active(self, idx):
+        mode = self.mode_manager.mode
+        pad_latched = {
+            'Note': self.mode_manager.note_pad_latched,
+            'CC': self.mode_manager.cc_pad_latched,
+            'N+C': self.mode_manager.nc_pad_latched
+        }.get(mode, [False] * 16)
+
+        return pad_latched[idx] or self.mode_manager.pad_held_states[idx]
+
+    def handle_note_mode_pad_press(self, idx):
+        mode = 'Note'
+
+        # --- Function Button Held Block ---
+        redraw_display = False
+        if not self.fn_button.value:
+            self.function_button_state = FN_STATE_USED
+            if idx == BANK_DOWN_IDX:
+                bank_idx = change_midi_bank(False)
+                display_midi_bank_down(bank_idx)
+                debug_print("Bank Down")
+                redraw_display = True
+
+            elif idx == BANK_UP_IDX:
+                bank_idx = change_midi_bank(True)
+                display_midi_bank_up(bank_idx)
+                debug_print("Bank Up")
+                redraw_display = True
+
+            else:
+                # Toggle latch with FN button
+                self.toggle_pad_latch(mode, idx, use_fn_button=True)
+
+            return redraw_display
+
+        # --- Function Button Not Held Block ---
+        else:
+            if self.mode_manager.note_latch_active or self.mode_manager.note_pad_latched[idx]:
+                # Latch mode is active
+                self.toggle_pad_latch(mode, idx, use_fn_button=False)
+            else:
+                # Send Note On for momentary action
+                self.send_midi_note_message(idx, note_on=True)
+                update_pad_led(mode, idx, active=True)
+                debug_print(f"Pad {idx} pressed in Note mode")
+                
+    def handle_note_mode_pad_release(self, idx):
+        mode = 'Note'
+        
+        if self.fn_button.value:
+            # FN button not held
+            if not self.mode_manager.note_latch_active and not self.mode_manager.note_pad_latched[idx]:
+                # Send Note Off for momentary action
+                self.send_midi_note_message(idx, note_on=False)
+                update_pad_led(mode, idx, active=False)
+                debug_print(f"Pad {idx} released in {mode} mode (momentary)")
+        else:
+            # FN button held
+            if self.mode_manager.note_latch_active:
+                # Temporary unlatch behavior
+                self.send_midi_note_message(idx, note_on=False)
+                update_pad_led(mode, idx, active=False)
+                debug_print(f"Pad {idx} released in {mode} mode with FN button")
+            else:
+                # Pad remains latched; no action needed
                 pass
 
-        # ------- Special function if button is held down -------
-        if button.long_press:
-            if CC_ONLY_MODE:
-                button_held_array[idx] = True
-                set_pixel_color_cc(idx)
+    def handle_cc_mode_pad_press(self, idx):
+        mode = 'CC'
+
+        # --- Function Button Held Block ---
+        redraw_display = False
+        if not self.fn_button.value:
+            self.function_button_state = FN_STATE_USED
+            if idx == BANK_DOWN_IDX:
+                blink_next_color()
+                debug_print("Color cycled to next")
+                redraw_display = True
+
+            elif idx == BANK_UP_IDX:
+                blink_prev_color()
+                debug_print("Color cycled to previous")
+                redraw_display = True
+
             else:
-                button_held_array[idx] = True
-                set_pixel_color_note(idx)
+                self.toggle_pad_latch(mode, idx, use_fn_button=True)
 
-        # ------- Handle Held Buttons Only in CC Mode with Latch Off -------
-        if CC_ONLY_MODE and not cc_latch_mode and button_held_array[idx]:
+        # --- Function Button Not Held Block ---
+        else:
+            if self.mode_manager.cc_latch_active or self.mode_manager.cc_pad_latched[idx]:
+                self.toggle_pad_latch(mode, idx, use_fn_button=False)
+            else:
+                update_pad_led(mode, idx, active=True)
+                debug_print(f"Pad {idx} pressed in CC mode")
+        
+        return redraw_display
+
+    def handle_cc_mode_pad_release(self, idx):
+        mode = 'CC'
+
+        if self.fn_button.value:
+            # FN button not held
+            if not self.mode_manager.cc_latch_active and not self.mode_manager.cc_pad_latched[idx]:
+                # Turn off the pad LED for momentary action
+                update_pad_led(mode, idx, active=False)
+                debug_print(f"Pad {idx} released in CC mode")
+        else:
+            # FN button held
+            if self.mode_manager.cc_latch_active:
+                # Temporary unlatch behavior
+                update_pad_led(mode, idx, active=False)
+                debug_print(f"Pad {idx} released in CC mode with FN button")
+
+    def handle_nc_mode_pad_press(self, idx):
+        mode = 'N+C'
+
+        # --- Function Button Held Block ---
+        redraw_display = False
+        if not self.fn_button.value:
+            # FN button held
+            self.function_button_state = FN_STATE_USED
+            if idx == BANK_DOWN_IDX:
+                bank_idx = change_midi_bank(False)
+                display_midi_bank_down(bank_idx)
+                debug_print("Bank Down")
+                redraw_display = True
+
+            elif idx == BANK_UP_IDX:
+                bank_idx = change_midi_bank(True)
+                display_midi_bank_up(bank_idx)
+                debug_print("Bank Up")
+                redraw_display = True
+
+            else:
+                # Toggle latch with FN button
+                self.toggle_pad_latch(mode, idx, use_fn_button=True)
             
-            any_button_held = True
+        
+        # --- Function Button Not Held Block ---
+        else:
+            if self.mode_manager.nc_latch_active or self.mode_manager.nc_pad_latched[idx]:
+                # Latch mode is active
+                self.toggle_pad_latch(mode, idx, use_fn_button=False)
+            else:
+                # Send Note On for momentary action
+                self.send_midi_note_message(idx, note_on=True)
+                update_pad_led(mode, idx, active=True)
+                debug_print(f"Pad {idx} pressed in N+C mode")
+                
+        return redraw_display
 
-            if any_slide_changed:
-                for i in range(3):
-                    if sliders.midi_val_chg_status[i]:
-                        send_control_change(
-                            slide_cc_vals_held[idx][i],
-                            sliders.current_slide_pots_midi[i]
-            )
-    # ------- Handle FN Button Single and Double Press Actions -------
-    # Check if enough time has passed since the last FN release to determine action
-    if fn_release_count > 0 and (current_time - last_fn_release_time) > DOUBLE_PRESS_INTERVAL:
-        if fn_release_count == 1 and not fn_action_triggered:
-            print("Single FN Press Detected: Toggling CC/Note Mode")
-            toggle_cc_only_mode()
-        elif fn_release_count >= 2:
-            print("Double FN Press Detected: Toggling Latch Modes")
-            toggle_latch_modes()
-        # Reset the press count after handling
-        fn_release_count = 0
-        # Reset the action flag after handling
-        fn_action_triggered = False
+    def handle_nc_mode_pad_release(self, idx):
+        mode = 'N+C'
 
-    # ------- Handle Slide Changes -------
-    if any_slide_changed:
-        for idx, slide_chg_status in enumerate(sliders.midi_val_chg_status):
+        if self.fn_button.value:
+            # FN button not held
+            if not self.mode_manager.nc_latch_active and not self.mode_manager.nc_pad_latched[idx]:
+                # Send Note Off for momentary action
+                self.send_midi_note_message(idx, note_on=False)
+                update_pad_led(mode, idx, active=False)
+                debug_print(f"Pad {idx} released in N+C mode")
+        else:
+            # FN button held
+            if self.mode_manager.nc_latch_active:
+                # Temporary unlatch behavior
+                self.send_midi_note_message(idx, note_on=False)
+                update_pad_led(mode, idx, active=False)
+                debug_print(f"Pad {idx} released in N+C mode with FN button")
 
-            if not slide_chg_status:
-                continue
+    def toggle_pad_latch(self, mode, idx, use_fn_button):
+        if use_fn_button:
+            self.function_button_state = FN_STATE_USED
+        
+        # Initialize variables based on mode
+        if mode == 'Note':
+            latch_active = self.mode_manager.note_latch_active
+            pad_latched = self.mode_manager.note_pad_latched
+            set_pixel_color = set_pixel_color_note
+            send_midi_notes = True
+        elif mode == 'CC':
+            latch_active = self.mode_manager.cc_latch_active
+            pad_latched = self.mode_manager.cc_pad_latched
+            set_pixel_color = set_pixel_color_cc
+            send_midi_notes = False  # Do not send MIDI notes in CC mode
+        elif mode == 'N+C':
+            latch_active = self.mode_manager.nc_latch_active
+            pad_latched = self.mode_manager.nc_pad_latched
+            set_pixel_color = set_pad_pixel_color_nc
+            send_midi_notes = True
+        else:
+            return  # Unknown mode
 
-            debug_print(f"Slide {idx} changed: {slide_chg_status}")
-            debug_print(f"LATCH_COUNT_CC: {LATCH_COUNT_CC}")
-            debug_print(f"LATCH_COUNT_NOTE: {LATCH_COUNT_NOTE}")
-            debug_print(f"CC_ONLY_MODE: {CC_ONLY_MODE}")
-            debug_print(f"any_button_held: {any_button_held}")
+        # Check if pad is already latched
+        if pad_latched[idx]:
+            # Pad is already latched; unlatch it
+            pad_latched[idx] = False
+            clear_pixel(idx)
+            debug_print(f"Pad {idx} unlatched in {mode} mode")
+            if send_midi_notes:
+                # Only send MIDI notes in 'Note' or 'N+C' modes
+                self.send_midi_note_message(idx, note_on=False)
+            return
+        else:
+            # Determine whether to latch the pad based on latch_active and use_fn_button
+            should_latch = (latch_active and not use_fn_button) or (not latch_active and use_fn_button)
 
-            # alwayus send global CCs in note mode
-            if not CC_ONLY_MODE:
-                send_control_change(slide_cc_vals[idx], sliders.current_slide_pots_midi[idx])
-                continue
+            if should_latch:
+                # Latch the pad
+                pad_latched[idx] = True
+                set_pixel_color(idx)
+                debug_print(f"Pad {idx} latched in {mode} mode")
+                if send_midi_notes:
+                    self.send_midi_note_message(idx, note_on=True)
+            else:
+                # Momentary action
+                if send_midi_notes:
+                    self.send_midi_note_message(idx, note_on=True)
+                set_pixel_color(idx)
+                debug_print(f"Pad {idx} pressed in {mode} mode (momentary)")
 
-            # Stuff is latched - override the globasls #DJT update this
-            # in latch mode, stuff is latched
-            if cc_latch_mode and LATCH_COUNT_CC > 0:
-                # CC mode. Only send CC if there are latched buttons
-                send_control_change(slide_cc_vals[idx], sliders.current_slide_pots_midi[idx])
-                debug_print("IN CC MODE - CC LATCHED")
+    def send_midi_note_message(self, idx, note_on, velocity=None):
+        """
+        Sends MIDI note on or off message for a given pad.
 
-            # Not in latch mode, and a button is being held. already accounted for this above.
-            if not cc_latch_mode and any_button_held:
-                continue
-                # send_control_change(slide_cc_vals[idx], sliders.current_slide_pots_midi[idx])
-            
-            # Default - send global CCs
-            send_control_change(slide_cc_vals[idx], sliders.current_slide_pots_midi[idx])
-
-
-#--- END code.py ---#
+        Args:
+            idx (int): Index of the pad.
+            note_on (bool): True to send Note On, False to send Note Off.
+            velocity (int, optional): Velocity for Note On messages.
+        """
+        if note_on:
+            if velocity is None:
+                # Use per-pad velocity if set, otherwise use global velocity
+                pad_velocity = self.mode_manager.pad_velocities[idx]
+                if pad_velocity is not None:
+                    velocity = pad_velocity
+                else:
+                    velocity = self.mode_manager.global_velocity
+            send_midi_note_on(idx, velocity)
+            debug_print(f"Sent MIDI Note On for pad {idx} with velocity {velocity}")
+        else:
+            send_midi_note_off(idx)
+            debug_print(f"Sent MIDI Note Off for pad {idx}")
+#--- END button_handler.py ---#
 
 #--- BEGIN display.py ---#
 import neopixel
 import board
 import time
+from settings import debug_print
 
 # Helper variables for special functions
 BANK_DOWN_IDX = 14
@@ -957,6 +1272,7 @@ pixels_mapped = [15, 14, 13, 12,
                  7, 6, 5, 4,
                  0, 1, 2, 3]
 
+previous_velocity_step = 0
 
 # What it looks like visually. 15 is bottom left, 3 is top right.
 
@@ -986,8 +1302,88 @@ def get_pixel(index):
     """
     return pixels_mapped[index]
 
+def calculate_brightness(step):
+    """
+    Calculates the brightness level for a given step (1-16).
+    Brightness ranges from low to high.
+
+    Args:
+        step (int): The step number (1-16).
+
+    Returns:
+        float: Brightness value between 0.1 and 1.0.
+    """
+    brightness = 0.1 + ((step - 1) / 15) * 0.9  # Scale brightness from 0.1 to 1.0
+    return max(0.1, min(brightness, 1.0))
+
+def scale_color(color, brightness):
+    """
+    Scales the color by the given brightness.
+
+    Args:
+        color (tuple): Original RGB color tuple (0-255).
+        brightness (float): Brightness factor (0.1 to 1.0).
+
+    Returns:
+        tuple: Scaled RGB color tuple.
+    """
+    r = int(color[0] * brightness)
+    g = int(color[1] * brightness)
+    b = int(color[2] * brightness)
+    return (r, g, b)
+
+def display_velocity(velocity_value, color=WHITE):
+    """
+    Displays the velocity on the NeoPixel grid by lighting up pixels in steps.
+    Updates only when the velocity crosses into a new step.
+
+    Args:
+        velocity_value (int): MIDI velocity value (0-127).
+        color (tuple, optional): Base RGB color for the pixels. Defaults to WHITE.
+
+    Returns:
+        None
+    """
+    # Define velocity thresholds for each of the 16 steps
+    velocity_thresholds = [int((127 * i) / 16) for i in range(1, 17)]  # 16 thresholds
+
+    # Determine the current step based on velocity
+    step = 16  # Default to maximum step
+    for i, threshold in enumerate(velocity_thresholds):
+        if velocity_value <= threshold:
+            step = i + 1
+            break
+    # Avoid updating if the displayed step hasn't changed
+    # We'll need to store the previous step value; let's use a global variable
+    global previous_velocity_step
+
+    if step == previous_velocity_step:
+        # No change in step; do not update display
+        return
+    else:
+        previous_velocity_step = step  # Update the stored step
+
+    # Clear the display
+    clear_pixels()
+
+    # Define the lighting order from bottom left to top right
+    light_order = [15, 14, 13, 12,
+                   8, 9, 10, 11,
+                   7, 6, 5, 4,
+                   0, 1, 2, 3]
+
+    # Light up pixels according to the current step
+    for idx in range(step):
+        # pixel_idx = pixels_mapped.index(idx)
+        # Calculate brightness for this step
+        brightness = calculate_brightness(step)
+        scaled_color = scale_color(color, brightness)
+        pixels[light_order[idx]] = scaled_color
+
+    pixels.show()
 # Function to draw a letter 'C' on the pixels with a specified color
-def draw_C(color=BLUE):
+def draw_C(color=BLUE, sleeptime=0.2):
+    clear_pixels()
     i = 0
     while i < 2:
         pixels[0] = color
@@ -1002,7 +1398,7 @@ def draw_C(color=BLUE):
         pixels[12] = color
 
         if color != BLACK:
-            time.sleep(0.2)
+            time.sleep(sleeptime)
             color = BLACK
         i += 1
 
@@ -1047,7 +1443,7 @@ def draw_HI(color=BLUE):
 
 
 # Function to draw a letter 'N' on the pixels with a specified color
-def draw_N(color=ORANGE):
+def draw_N(color=ORANGE, sleeptime=0.2):
     clear_pixels()
     i = 0
     while i < 2:
@@ -1063,11 +1459,30 @@ def draw_N(color=ORANGE):
         pixels[15] = color
 
         if color != BLACK:
-            time.sleep(0.2)
+            time.sleep(sleeptime)
             color = BLACK
 
         i += 1
 
+def draw_NC(color=CYAN):
+    """
+    Draws an indication for N+C mode on the display.
+    """
+    clear_pixels()
+    draw_N(sleeptime=0.15)
+    clear_pixels()
+
+    # Implement your desired pattern to represent N+C mode
+    # For example, light up all corners
+    pixels[15] = color
+    pixels[9] = color
+    pixels[5] = color
+    pixels[3] = color
+    pixels.show()
+    time.sleep(0.15)
+    clear_pixels()
+    draw_C(sleeptime=0.15)
+    
 def draw_lock_icon(color=RED):
     """
     Draws the letter 'L' on the NeoPixel grid using the specified color.
@@ -1090,7 +1505,7 @@ def draw_lock_icon(color=RED):
 
     sleep_time = 0
     for j in (7,0,1,2,5): # animate locking
-        sleep_time = sleep_time + 0.025
+        sleep_time = sleep_time + 0.015
         time.sleep(sleep_time)
         pixels[j] = color
     
@@ -1123,7 +1538,7 @@ def draw_unlock_icon(color=GREEN):
     
     sleep_time = 0
     for j in (5,2,1,0,7): # animate unlocking
-        sleep_time = sleep_time + 0.025
+        sleep_time = sleep_time + 0.015
         time.sleep(sleep_time)
         pixels[j] = BLACK
 
@@ -1295,6 +1710,9 @@ def set_pixel_color_note(idx):
     """
     pixels[get_pixel(idx)] = ORANGE
 
+def set_pad_pixel_color_nc(idx):
+    pixels[get_pixel(idx)] = CYAN
+
 def clear_pixel(idx):
     """
     Clears the pixel at the specified index.
@@ -1324,6 +1742,29 @@ def update_cc_pixels(latch_ary):
         else:
             clear_pixel(idx)
 
+def update_pad_led(mode, idx, active):
+    """
+    Updates the LED for a pad based on the mode and active state.
+
+    Args:
+        mode (str): Current mode ('Note', 'CC', 'N+C').
+        idx (int): Index of the pad.
+        active (bool): True to turn on the LED, False to turn it off.
+    """
+    if mode == 'Note':
+        pixel_color = ORANGE
+    elif mode == 'CC':
+        pixel_color = COLORS[selected_color_idx]
+    elif mode == 'N+C':
+        pixel_color = CYAN
+    else:
+        pixel_color = BLACK
+
+    if active:
+        pixels[get_pixel(idx)] = pixel_color
+    else:
+        clear_pixel(idx)
+
 
 #--- END display.py ---#
 
@@ -1341,56 +1782,273 @@ def update_cc_pixels(latch_ary):
 #--- END cc_vals.json ---#
 
 #--- BEGIN settings.py ---#
+"""
+Settings Module
+
+This module contains configurable constants, default values, and utility functions
+used across the MIDI controller project. It centralizes settings for easy adjustments
+and ensures consistency throughout the codebase.
+
+Provides:
+- Constants for timing intervals, thresholds, and default MIDI values.
+- Functions to load CC values and MIDI channel from a JSON configuration file.
+- Debug printing utility.
+"""
+
 import json
 
-debug = False
-FILEPATH = 'cc_vals.json'
+# Debugging
+DEBUG = False
 
-default_slide_cc_vals = [3, 9, 85]
+def debug_print(message):
+    """
+    Prints a debug message if debugging is enabled.
 
-# Array of arrays of slide potentiometer values to be used when each of the 16 buttons are held down.
-# Each inner array contains the CC values for the 3 slide potentiometers, starting at value 10.
-default_slide_cc_vals_held = [
+    Args:
+        message (str): The message to print.
+    """
+    if DEBUG:
+        print(message)
+
+# Filepath for configuration
+CONFIG_FILEPATH = 'cc_vals.json'
+
+# Timing Constants
+DOUBLE_PRESS_INTERVAL = 0.3   # Seconds between clicks to detect a double press
+HOLD_THRESHOLD = 0.5          # Seconds to detect a hold event
+
+# Default MIDI CC Values for Sliders
+DEFAULT_SLIDE_CC_VALS = [3, 9, 85]  # Global CC numbers for sliders
+
+# Default CC Values for Sliders when Pads are Held or Latched
+# Each sublist corresponds to one of the 16 pads.
+DEFAULT_SLIDE_CC_VALS_HELD = [
     [10, 11, 12], [13, 14, 15], [16, 17, 18], [19, 20, 21],
     [22, 23, 24], [25, 26, 27], [28, 29, 30], [31, 32, 33],
     [34, 35, 36], [37, 38, 39], [40, 41, 42], [43, 44, 45],
     [46, 47, 48], [49, 50, 51], [52, 53, 54], [55, 56, 57]
 ]
 
-def debug_print(message):
-    if debug:
-        print(message)
+# Default MIDI Channel
+DEFAULT_MIDI_CHANNEL = 1  # MIDI channels range from 1 to 16
 
 def load_cc_vals_from_file():
-    # Returns a tuple of the slide_cc_vals and slide_cc_vals_held dictionaries
+    """
+    Load CC values for sliders from the configuration file.
 
+    Returns:
+        tuple: A tuple containing two lists:
+            - slide_cc_vals (list): Global CC numbers for sliders.
+            - slide_cc_vals_held (list): CC numbers per pad per slider when pads are held or latched.
+    """
     try:
-        with open(FILEPATH, 'r') as f:
+        with open(CONFIG_FILEPATH, 'r') as f:
             all_cc_vals = json.load(f)
-            slide_cc_vals = all_cc_vals['SLIDER_CC_VALS_GLOBAL']
-            cc_vals_held = all_cc_vals['SLIDER_CC_VALS_HELD']
-
+            slide_cc_vals = all_cc_vals.get('SLIDER_CC_VALS_GLOBAL', DEFAULT_SLIDE_CC_VALS)
+            slide_cc_vals_held = all_cc_vals.get('SLIDER_CC_VALS_HELD', DEFAULT_SLIDE_CC_VALS_HELD)
             debug_print(f"Loaded CC values from file: {slide_cc_vals}")
-            debug_print(f"Loaded CC values held from file: {cc_vals_held}")
-
-            return (slide_cc_vals, cc_vals_held)
-
+            debug_print(f"Loaded CC values held from file: {slide_cc_vals_held}")
+        return (slide_cc_vals, slide_cc_vals_held)
     except FileNotFoundError:
-        return (default_slide_cc_vals, default_slide_cc_vals_held)
+        debug_print(f"Configuration file '{CONFIG_FILEPATH}' not found. Using default CC values.")
+        return (DEFAULT_SLIDE_CC_VALS, DEFAULT_SLIDE_CC_VALS_HELD)
 
 def load_midi_channel_from_file():
+    """
+    Load the MIDI channel from the configuration file.
+
+    Returns:
+        int: The MIDI channel (0-15, where 0 corresponds to MIDI Channel 1).
+    """
     try:
-        with open(FILEPATH, 'r') as f:
+        with open(CONFIG_FILEPATH, 'r') as f:
             all_data = json.load(f)
-            midi_channel = all_data['MIDI_CHANNEL']
-            midi_channel -= 1
-            midi_channel = max(midi_channel, 0)
-
-            debug_print(f"Loaded MIDI channel from file: {midi_channel}")
-
-            return midi_channel
-
+            midi_channel = all_data.get('MIDI_CHANNEL', DEFAULT_MIDI_CHANNEL)
+            # Adjust MIDI channel to be zero-based index
+            midi_channel = max(1, min(16, midi_channel)) - 1
+            debug_print(f"Loaded MIDI channel from file: {midi_channel + 1}")
+        return midi_channel
     except FileNotFoundError:
-        return 1
+        debug_print(f"Configuration file '{CONFIG_FILEPATH}' not found. Using default MIDI channel.")
+        return DEFAULT_MIDI_CHANNEL - 1  # Zero-based index
+
+# Example usage of loading configurations
+# This will be used in midi.py or where the MIDI channel is needed
+MIDI_CHANNEL = load_midi_channel_from_file()
+all_cc_vals = load_cc_vals_from_file()
+slide_cc_vals = all_cc_vals[0]
+slide_cc_vals_held = all_cc_vals[1]
 #--- END settings.py ---#
+
+#--- BEGIN mode_manager.py ---#
+# mode_manager.py
+
+import midi
+from display import (
+    draw_C, draw_N, draw_NC, draw_lock_icon, draw_unlock_icon,
+    set_pixel_color_note, set_pixel_color_cc, set_pad_pixel_color_nc,
+    clear_pixel
+)
+from settings import debug_print
+
+MODE_NOTE = 'Note'
+MODE_CC = 'CC'
+MODE_NC = 'N+C'
+MODES = [MODE_NOTE, MODE_CC, MODE_NC]
+
+class ModeManager:
+    """
+    Manages the MIDI controller's modes, latch states, and velocities.
+
+    Modes:
+        - 'Note': Pads send MIDI note messages.
+        - 'CC': Pads send MIDI CC (Control Change) messages.
+        - 'N+C': Pads can send both Note and CC messages.
+
+    Latch Modes:
+        - Each mode can be in 'locked' (latch active) or 'unlocked' (latch inactive) state.
+        - When locked, pads can latch notes or CC messages.
+        - When unlocked, pads function momentarily (notes/CC messages sent only while pad is pressed).
+
+    Attributes:
+        mode (str): The current mode ('Note', 'CC', or 'N+C').
+        note_latch_active (bool): Indicates if latch is active in Note mode.
+        cc_latch_active (bool): Indicates if latch is active in CC mode.
+        nc_latch_active (bool): Indicates if latch is active in N+C mode.
+        note_pad_latched (list): Track latched pads in Note mode.
+        cc_pad_latched (list): Track latched pads in CC mode.
+        pad_held_states (list): Track the hold state of pads (True if held).
+        global_velocity (int): The global MIDI note velocity.
+        pad_velocities (list): Per-pad velocities (if None, uses global velocity).
+    """
+
+    def __init__(self):
+        self.mode = 'Note'
+        self.note_latch_active = False
+        self.cc_latch_active = True
+        self.nc_latch_active = False
+        self.note_pad_latched = [False] * 16
+        self.cc_pad_latched = [False] * 16
+        self.nc_pad_latched = [False] * 16
+        self.pad_held_states = [False] * 16
+        self.global_velocity = 100
+        self.pad_velocities = [None] * 16
+
+    def cycle_mode(self):
+        """
+        Cycle through modes in order: Note -> CC -> N+C -> Note.
+        """
+        previous_mode = self.mode
+        if self.mode == 'Note':
+            self.mode = 'CC'
+        elif self.mode == 'CC':
+            self.mode = 'N+C'
+        else:
+            self.mode = 'Note'
+        self.update_mode(previous_mode)
+
+    def update_mode(self, previous_mode):
+        """
+        Update LEDs and other settings when mode changes.
+
+        Args:
+            previous_mode (str): The mode prior to the change.
+        """
+        # Turn off latched notes when leaving N+C mode
+        if previous_mode == 'N+C' and self.mode != 'N+C':
+            for idx in range(16):
+                if self.nc_pad_latched[idx]:
+                    # transfer latch to note mode
+                    self.note_pad_latched[idx] = True
+                    # midi.send_midi_note_off(idx)
+                    # self.nc_pad_latched[idx] = False
+                    
+                clear_pixel(idx)
+
+        # Update display and pad LEDs based on the new mode
+        
+        if self.mode == 'CC':
+            draw_C()
+            self.update_cc_mode_leds()
+        elif self.mode == 'Note':
+            draw_N()
+            self.update_note_mode_leds()
+        elif self.mode == 'N+C':
+            draw_NC()
+            self.update_nc_mode_leds()
+
+    def toggle_latch_mode(self):
+        """
+        Toggle the latch mode for the current mode.
+        """
+        if self.mode == 'CC':
+            self.cc_latch_active = not self.cc_latch_active
+            if self.cc_latch_active:
+                debug_print("CC Latch Mode Activated")
+                draw_lock_icon()
+            else:
+                debug_print("CC Latch Mode Deactivated")
+                draw_unlock_icon()
+            self.update_cc_mode_leds()
+        elif self.mode == 'Note':
+            self.note_latch_active = not self.note_latch_active
+            if self.note_latch_active:
+                debug_print("Note Latch Mode Activated")
+                draw_lock_icon()
+            else:
+                debug_print("Note Latch Mode Deactivated")
+                draw_unlock_icon()
+            self.update_note_mode_leds()
+        elif self.mode == 'N+C':
+            self.nc_latch_active = not self.nc_latch_active
+            if self.nc_latch_active:
+                debug_print("N+C Latch Mode Activated")
+                draw_lock_icon()
+            else:
+                debug_print("N+C Latch Mode Deactivated")
+                draw_unlock_icon()
+            self.update_nc_mode_leds()
+
+
+    def update_note_mode_leds(self):
+        """
+        Update pad LEDs for Note mode based on latch states.
+        """
+        for idx in range(16):
+            if self.note_pad_latched[idx]:
+                set_pixel_color_note(idx)
+            else:
+                clear_pixel(idx)
+
+    def update_cc_mode_leds(self):
+        """
+        Update pad LEDs for CC mode based on latch states.
+        """
+        for idx in range(16):
+            if self.cc_pad_latched[idx]:
+                set_pixel_color_cc(idx)
+            else:
+                clear_pixel(idx)
+
+    def update_nc_mode_leds(self):
+        """
+        Update pad LEDs for N+C mode based on latch states.
+        """
+        for idx in range(16):
+            if self.nc_pad_latched[idx]:
+                set_pad_pixel_color_nc(idx)
+            else:
+                clear_pixel(idx)
+    
+    def refresh_display(self):
+        """
+        Update the display to show the current mode.
+        """
+        if self.mode == 'CC':
+            self.update_cc_mode_leds()
+        elif self.mode == 'Note':
+            self.update_note_mode_leds()
+        elif self.mode == 'N+C':
+            self.update_nc_mode_leds()
+#--- END mode_manager.py ---#
 

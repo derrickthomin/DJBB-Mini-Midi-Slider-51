@@ -3,7 +3,7 @@ from adafruit_midi.note_on import NoteOn
 from adafruit_midi.note_off import NoteOff
 from adafruit_midi.control_change import ControlChange
 import usb_midi
-from settings import load_midi_channel_from_file
+from settings import load_midi_channel_from_file, debug_print
 
 # Create a MIDI object
 channel = load_midi_channel_from_file()
@@ -35,7 +35,7 @@ def send_midi_note_on(index, velocity=100):
     """
     note = current_midi_notes[index]
     midi.send(NoteOn(note, velocity))
-    print(f"Sending note {note} at index {index} with velocity {velocity}")
+    debug_print(f"Sending note {note} at index {index} with velocity {velocity}")
 
 def send_midi_note_off(index):
     """
@@ -84,5 +84,5 @@ def send_control_change(control_change, value):
         control_change (int): The control change number.
         value (int): The value to set for the control change.
     """
-    print(f"Sending CC {control_change} with value {value}")
+    debug_print(f"Sending CC {control_change} with value {value}")
     midi.send(ControlChange(control_change, value))
